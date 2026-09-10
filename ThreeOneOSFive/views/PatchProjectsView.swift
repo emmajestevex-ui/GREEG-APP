@@ -312,106 +312,25 @@ private struct PatchProjectDetailView: View {
     }
 
     var body: some View {
-        List {
+        ScrollView {
             if let item, let project = item.project {
-                if isWorkspaceProject {
-                    Section {
-                        ForEach(project.allBundleIdentifiers, id: \.self) { bundleID in
-                            Label {
-                                Text(bundleID)
-                                    .font(.subheadline.monospaced())
-                            } icon: {
-                                Image(systemName: "app.dashed")
-                                    .foregroundStyle(AppTheme.accent)
-                            }
-                        }
-                        LabeledContent(language.text("patch.files")) {
-                            Text("\(project.rules.count)")
-                        }
-                        LabeledContent(language.text("patch.folders")) {
-                            Text("\(project.directories.count)")
-                        }
-                        if let workspaceURL = item.workspaceURL {
-                            NavigationLink {
-                                FileBrowserView(
-                                    containerPath: workspaceURL.path,
-                                    title: project.name,
-                                    bundleID: nil
-                                )
-                            } label: {
-                                Label(
-                                    language.text("patch.open_workspace"),
-                                    systemImage: "folder"
-                                )
-                            }
-                        }
-                    } header: {
-                        Text(language.text("patch.workspace"))
-                    } footer: {
-                        Text(language.text("patch.workspace_detail_footer"))
+                VStack(spacing: 16) {
+                    projectHeader(item: item, project: project)
+                    compactStats(item: item, project: project)
+                    projectActions(item: item, project: project)
+
+                    if !isWorkspaceProject, !project.rules.isEmpty {
+                        rulesCard(project: project)
                     }
-                } else {
-                    Section {
-                        ForEach(project.rules) { rule in
-                            Button {
-                                editingRule = rule
-                            } label: {
-                                HStack(spacing: 10) {
-                                    ruleSummary(rule)
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint(language.text("patch.edit_rule_hint"))
-                        }
-                    } header: {
-                        Text(language.text("patch.rules"))
-                    } footer: {
-                        Text(language.text("patch.legacy_footer"))
-                    }
+
+                    patchControls
                 }
-
-                Section(language.text("patch.password")) {
-                    HStack(spacing: 12) {
-                        Image(systemName: item.summary.isPasswordProtected ? "lock.fill" : "lock.open")
-                            .foregroundStyle(AppTheme.accent)
-                            .frame(width: 24)
-                        Text(language.text(item.summary.isPasswordProtected
-                            ? "patch.password_locked"
-                            : "patch.no_password"))
-                            .font(.subheadline)
-                    }
-                }
-
-                Section {
-                    Button {
-                        showApplyConfirmation = true
-                    } label: {
-                        actionLabel("patch.apply", systemImage: "checkmark.shield.fill")
-                    }
-                    .disabled(isWorking)
-
-                    if receipt != nil {
-                        Button(role: .destructive) {
-                            showRestoreConfirmation = true
-                        } label: {
-                            actionLabel("patch.restore", systemImage: "arrow.uturn.backward.circle")
-                        }
-                        .disabled(isWorking)
-                    }
-
-                } footer: {
-                    Text(language.text("patch.apply_footer"))
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 34)
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.pageBackground)
+        .background(AppTheme.pageBackground.ignoresSafeArea())
         .navigationTitle(item?.project?.name ?? language.text("patch.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -419,8 +338,16 @@ private struct PatchProjectDetailView: View {
                 if isWorking {
                     ProgressView()
                 } else {
-                    Button(language.text("patch.edit")) { showEditor = true }
-                        .disabled(item?.project == nil)
+                    Button {
+                        showEditor = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(width: 34, height: 34)
+                            .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .disabled(item?.project == nil)
+                    .accessibilityLabel(language.text("patch.edit"))
                 }
             }
         }
@@ -468,6 +395,207 @@ private struct PatchProjectDetailView: View {
             PatchActivityView(items: [request.url])
                 .ignoresSafeArea()
         }
+    }
+
+    private func projectHeader(item: PatchLibraryItem, project: PatchProject) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.accent.opacity(0.14))
+                Image(systemName: "shippingbox.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(AppTheme.accent)
+            }
+            .frame(width: 62, height: 62)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(project.name)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text(project.allBundleIdentifiers.first ?? "—")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Image(systemName: receipt == nil ? "circle.dashed" : "checkmark.circle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(receipt == nil ? Color.secondary : AppTheme.accent)
+        }
+        .padding(16)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(AppTheme.accent.opacity(0.18), lineWidth: 1)
+        }
+    }
+
+    private func compactStats(item: PatchLibraryItem, project: PatchProject) -> some View {
+        HStack(spacing: 10) {
+            statPill(icon: "doc.fill", value: "\(project.rules.count)", title: language.text("patch.files"))
+            statPill(icon: "folder.fill", value: "\(project.directories.count)", title: language.text("patch.folders"))
+            statPill(
+                icon: item.summary.isPasswordProtected ? "lock.fill" : "lock.open.fill",
+                value: item.summary.isPasswordProtected ? "ON" : "OFF",
+                title: language.text("patch.password")
+            )
+        }
+    }
+
+    private func statPill(icon: String, value: String, title: String) -> some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.accent)
+                Text(value)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func projectActions(item: PatchLibraryItem, project: PatchProject) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                showEditor = true
+            } label: {
+                compactActionButton(title: language.text("patch.edit"), icon: "pencil")
+            }
+            .buttonStyle(.plain)
+
+            if let workspaceURL = item.workspaceURL {
+                NavigationLink {
+                    FileBrowserView(
+                        containerPath: workspaceURL.path,
+                        title: project.name,
+                        bundleID: nil
+                    )
+                } label: {
+                    compactActionButton(title: "Archivos", icon: "folder.fill")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func compactActionButton(title: String, icon: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.accent)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+    }
+
+    private func rulesCard(project: PatchProject) -> some View {
+        VStack(spacing: 0) {
+            ForEach(project.rules) { rule in
+                Button {
+                    editingRule = rule
+                } label: {
+                    HStack(spacing: 12) {
+                        AppRowIcon(systemName: "arrow.triangle.2.circlepath")
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(rule.replacementFilename)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Text(rule.relativePath)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 58)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if rule.id != project.rules.last?.id {
+                    Divider().padding(.leading, 56)
+                }
+            }
+        }
+        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var patchControls: some View {
+        VStack(spacing: 10) {
+            Button {
+                showApplyConfirmation = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bolt.fill")
+                    Text(language.text("patch.apply"))
+                        .fontWeight(.bold)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .foregroundStyle(.white)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.accent, AppTheme.accentGlow],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
+                .shadow(color: AppTheme.accent.opacity(0.24), radius: 12, y: 5)
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorking)
+
+            if receipt != nil {
+                Button {
+                    showRestoreConfirmation = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                        Text(language.text("patch.restore"))
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .foregroundStyle(AppTheme.accent)
+                    .background(AppTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .stroke(AppTheme.accent.opacity(0.45), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isWorking)
+            }
+        }
+        .padding(.top, 2)
     }
 
     private func actionLabel(_ key: String, systemImage: String) -> some View {
