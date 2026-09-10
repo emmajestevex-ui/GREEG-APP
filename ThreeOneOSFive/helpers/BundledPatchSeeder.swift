@@ -4,6 +4,7 @@ enum BundledPatchSeeder {
     private struct ProjectSpec {
         let id: UUID
         let defaultName: String
+        let legacyDefaultNames: Set<String>
         let payloads: [PayloadSpec]
     }
 
@@ -24,7 +25,8 @@ enum BundledPatchSeeder {
     private static let projects = [
         ProjectSpec(
             id: UUID(uuidString: "A55E0001-3105-4A55-9001-00000000BEEF")!,
-            defaultName: "asse",
+            defaultName: "Asset Indexer",
+            legacyDefaultNames: ["asse"],
             payloads: [
                 PayloadSpec(
                     directory: "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar",
@@ -32,6 +34,13 @@ enum BundledPatchSeeder {
                         "assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D"
                     ]
                 ),
+            ]
+        ),
+        ProjectSpec(
+            id: UUID(uuidString: "A55E0003-3105-4A55-9001-00000000BEEF")!,
+            defaultName: "Shaders",
+            legacyDefaultNames: [],
+            payloads: [
                 PayloadSpec(
                     directory: "Documents/contentcache/Optional/ios/gameassetbundles",
                     filenameCandidates: [
@@ -44,6 +53,7 @@ enum BundledPatchSeeder {
         ProjectSpec(
             id: UUID(uuidString: "A55E0002-0144-4A55-9001-00000000BEEF")!,
             defaultName: "144 fps",
+            legacyDefaultNames: [],
             payloads: [
                 PayloadSpec(
                     directory: "Library/Preferences",
@@ -56,6 +66,10 @@ enum BundledPatchSeeder {
     ]
 
     static let projectIDs = Set(projects.map { $0.id })
+
+    static func sortRank(for id: UUID) -> Int {
+        projects.firstIndex { $0.id == id } ?? Int.max
+    }
 
     static func seedIfNeeded(fileManager: FileManager = .default) {
         for spec in projects {
@@ -104,7 +118,12 @@ enum BundledPatchSeeder {
             try makeRule(payload, fileManager: fileManager)
         }
         let existingName = existingProject?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let name = existingName.isEmpty ? spec.defaultName : existingName
+        let name: String
+        if existingName.isEmpty || spec.legacyDefaultNames.contains(existingName) {
+            name = spec.defaultName
+        } else {
+            name = existingName
+        }
 
         return PatchProject(
             id: spec.id,

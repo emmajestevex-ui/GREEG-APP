@@ -18,17 +18,23 @@ shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D
 com.dts.freefireth.plist
 ```
 
-La app creara automaticamente un patch llamado `asse` con estas rutas:
+La app creara automaticamente tres patches internos.
+
+Patch `Asset Indexer`:
 
 ```text
 com.dts.freefireth
 Documents/contentcache/Compulsory/ios/gameassetbundles/avatar/assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D
+```
 
+Patch `Shaders`:
+
+```text
 com.dts.freefireth
 Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D
 ```
 
-Tambien creara automaticamente un patch llamado `144 fps` con esta ruta:
+Patch `144 fps`:
 
 ```text
 com.dts.freefireth
@@ -108,7 +114,7 @@ La IPA queda sin firmar para que despues uses tu metodo de firma autorizado.
 - Nombre visible cambiado a `greeg app`.
 - Pantalla de key en ingles.
 - Cleaner, Wallpapers y Files ocultos de la navegacion.
-- Patches `asse` y `144 fps` generados automaticamente desde payloads embebidos.
+- Patches `Asset Indexer`, `Shaders` y `144 fps` generados automaticamente desde payloads embebidos.
 - Botones cliente: `Apply`, `Original` y `Edit Name`.
 - Importar, exportar, crear y editar reglas removidos de la UI.
 - `UIFileSharingEnabled` desactivado.

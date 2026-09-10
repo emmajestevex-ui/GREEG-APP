@@ -44,6 +44,12 @@ final class PatchProjectStore: ObservableObject {
     func reload() {
         items = PatchProjectLibrary.load()
             .filter { BundledPatchSeeder.projectIDs.contains($0.id) }
+            .sorted {
+                let leftRank = BundledPatchSeeder.sortRank(for: $0.id)
+                let rightRank = BundledPatchSeeder.sortRank(for: $1.id)
+                if leftRank != rightRank { return leftRank < rightRank }
+                return ($0.project?.updatedAt ?? .distantPast) > ($1.project?.updatedAt ?? .distantPast)
+            }
     }
 
     func create(project: PatchProject, password: String?) {

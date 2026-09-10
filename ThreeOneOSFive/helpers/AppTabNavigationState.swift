@@ -53,7 +53,7 @@ struct AppTabNavigationState: Equatable {
     private(set) var filesTabs: FilesTabSession
 
     init(
-        selectedTab: Int = AppSection.patches.rawValue,
+        selectedTab: Int = AppSection.home.rawValue,
         filesNavigationPath: [FileBrowserDestination] = []
     ) {
         self.selectedTab = selectedTab
