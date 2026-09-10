@@ -114,12 +114,14 @@
 "patch.import" = "Import .3105";
 "patch.export" = "Export .3105";
 "patch.edit" = "Edit";
-"patch.empty_title" = "No Patch Projects";
-"patch.empty_message" = "Create a project or import a .3105 package.";
+"patch.edit_name" = "Edit Name";
+"patch.empty_title" = "Bundled Patch Unavailable";
+"patch.empty_message" = "The bundled patch will appear here automatically.";
+"patch.bundled_missing_message" = "Add the private payload files to BundledPatchPayloads before building the IPA.";
 "patch.locked_project" = "Locked Patch";
 "patch.tap_to_unlock" = "Tap to enter its password";
 "patch.password_protected" = "Password protected";
-"patch.rules_count" = "%lld replacement rules";
+"patch.rules_count" = "%lld patch files";
 "patch.workspace_items_count" = "%lld workspace items";
 "patch.search" = "Search patches";
 "patch.search_empty" = "No Matching Patches";
@@ -137,6 +139,7 @@
 "patch.files" = "Files";
 "patch.folders" = "Folders";
 "patch.rules" = "Rules";
+"patch.client_rules_footer" = "This patch is built into greeg app. Clients cannot import, export, or edit the package from here.";
 "patch.add_rule" = "Add Rule";
 "patch.edit_rule" = "Edit Rule";
 "patch.destination" = "Destination";
@@ -170,9 +173,9 @@
 "patch.password_existing_footer" = "This setting cannot be changed after creation.";
 "patch.password_once_message" = "After a successful unlock, this device remembers the content key—not the password.";
 "patch.unlock" = "Unlock";
-"patch.apply" = "Apply Patch";
-"patch.restore" = "Restore Originals";
-"patch.apply_footer" = "Before writing, 3105 resolves each bundle on this device and saves every original file for recovery.";
+"patch.apply" = "Apply";
+"patch.restore" = "Original";
+"patch.apply_footer" = "Before writing, greeg app resolves the target app on this device and saves every original file for recovery.";
 "patch.apply_confirm_title" = "Apply this patch?";
 "patch.apply_confirm_message" = "All bundle identifiers and relative paths will be validated again. Originals are backed up before the first write.";
 "patch.restore_confirm_title" = "Restore original files?";
@@ -181,7 +184,7 @@
 "patch.imported_message" = "The .3105 package was imported.";
 "patch.unlocked_message" = "Unlocked. This device will not ask for this package password again.";
 "patch.workspace_synced_message" = "The patch workspace was synchronized.";
-"patch.applied_message" = "All patch rules were applied and the originals were backed up.";
+"patch.applied_message" = "The patch was applied and the originals were backed up.";
 "patch.restored_message" = "The original files were restored.";
 "patch.error.unsupported_format" = "This is not a valid .3105 patch package.";
 "patch.error.unsupported_version" = "This patch requires a newer version of 3105. Update the app before importing it.";

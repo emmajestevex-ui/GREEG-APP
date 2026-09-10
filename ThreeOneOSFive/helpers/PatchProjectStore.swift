@@ -37,11 +37,13 @@ final class PatchProjectStore: ObservableObject {
     private var pendingUnlock: PendingUnlock?
 
     init() {
+        BundledPatchSeeder.seedIfNeeded()
         reload()
     }
 
     func reload() {
         items = PatchProjectLibrary.load()
+            .filter { BundledPatchSeeder.projectIDs.contains($0.id) }
     }
 
     func create(project: PatchProject, password: String?) {

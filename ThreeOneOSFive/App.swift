@@ -7,8 +7,7 @@ struct ThreeOneOSFiveApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
-    @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
-    @State private var showOnboarding = OnboardingStore.shouldShow()
+    @State private var showOnboarding = false
     @AppStorage("greeg.license.supabaseUnlocked") private var licenseUnlocked = false
     @State private var showAttribution = false
     @State private var updateOffer: AppUpdateChecker.Offer?
@@ -20,7 +19,7 @@ struct ThreeOneOSFiveApp: App {
     }
 
     private var language: AppLanguage {
-        AppLanguage(rawValue: languageCode) ?? .english
+        .english
     }
 
     private func checkForUpdate() {
@@ -33,24 +32,17 @@ struct ThreeOneOSFiveApp: App {
     private func refreshLicenseStatus() {
         _ = DeviceInstallationID.current()
         guard licenseUnlocked else { return }
-        let storedKey = UserDefaults.standard.string(forKey: "greeg.license.key")?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+
+        let storedKey = UserDefaults.standard.string(forKey: "greeg.license.key")?.normalizedLicenseKey ?? ""
         guard !storedKey.isEmpty else {
             licenseUnlocked = false
             return
         }
-        Task {
-            do {
-                let response = try await SupabaseLicenseClient().activate(licenseKey: storedKey, deviceID: DeviceInstallationID.current())
-                await MainActor.run {
-                    licenseUnlocked = response.success
-                    if !response.success {
-                        UserDefaults.standard.set(false, forKey: "greeg.license.supabaseUnlocked")
-                    }
-                }
-            } catch {
-                log("license: refresh failed: \(error.localizedDescription)")
-            }
-        }
+    }
+
+    private func prepareUnlockedApp() {
+        BundledPatchSeeder.seedIfNeeded()
+        appState.detectSupport()
     }
 
     var body: some Scene {
@@ -73,7 +65,6 @@ struct ThreeOneOSFiveApp: App {
                             showOnboarding = false
                         }
                         appState.detectSupport()
-                        checkForUpdate()
                     }
                     .environment(\.appLanguage, language)
                     .environment(\.locale, language.locale)
@@ -83,6 +74,7 @@ struct ThreeOneOSFiveApp: App {
                 } else {
                     GreegLicenseView {
                         licenseUnlocked = true
+                        prepareUnlockedApp()
                     }
                 }
             }
@@ -105,19 +97,12 @@ struct ThreeOneOSFiveApp: App {
             }
             .onAppear {
                 refreshLicenseStatus()
-                if licenseUnlocked && !showOnboarding {
-                    appState.detectSupport()
-                    checkForUpdate()
-                }
+                if licenseUnlocked { prepareUnlockedApp() }
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active else { return }
                 refreshLicenseStatus()
-                guard licenseUnlocked, !showOnboarding else { return }
-                appState.detectSupport()
-            }
-            .onOpenURL { url in
-                patchDraftCoordinator.presentImport(url)
+                if licenseUnlocked { prepareUnlockedApp() }
             }
         }
     }
@@ -235,6 +220,7 @@ private struct GreegLicenseView: View {
     @State private var messageText = ""
     @State private var didActivate = false
     @State private var isLoading = false
+    private let client = SupabaseLicenseClient()
     let onSuccess: () -> Void
 
     var body: some View {
@@ -244,17 +230,20 @@ private struct GreegLicenseView: View {
                 Spacer()
                 AppLogo(size: 104)
                     .shadow(color: AppTheme.accent.opacity(0.55), radius: 24)
+
                 VStack(spacing: 7) {
-                    Text("GREEG APP")
+                    Text("greeg app")
                         .font(.system(size: 31, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
-                    Text("Acceso exclusivo para clientes")
+                    Text("Exclusive client access")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
                 VStack(spacing: 12) {
                     HStack(spacing: 10) {
-                        Image(systemName: "key.fill").foregroundStyle(AppTheme.accent)
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(AppTheme.accent)
                         TextField("GREEG-1", text: $key)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
@@ -268,9 +257,14 @@ private struct GreegLicenseView: View {
 
                     Button(action: primaryAction) {
                         HStack(spacing: 10) {
-                            if isLoading { ProgressView().tint(.white) }
-                            else { Image(systemName: didActivate ? "checkmark.circle.fill" : "arrow.right") }
-                            Text(didActivate ? "Continuar" : "Entrar").font(.headline)
+                            if isLoading {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: didActivate ? "checkmark.circle.fill" : "arrow.right")
+                            }
+                            Text(didActivate ? "Continue" : "Enter")
+                                .font(.headline)
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
@@ -288,11 +282,12 @@ private struct GreegLicenseView: View {
                 }
                 .padding(.horizontal, 30)
 
-                Text("Activación segura con Supabase")
+                Text("Secure activation with Supabase")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
+
                 Spacer()
-                Text("GREEG APP • STAY PRIVATE")
+                Text("GREEG APP - STAY PRIVATE")
                     .font(.caption2.weight(.semibold))
                     .tracking(2)
                     .foregroundStyle(.secondary)
@@ -302,26 +297,40 @@ private struct GreegLicenseView: View {
     }
 
     private func primaryAction() {
-        if didActivate { onSuccess(); return }
-        Task { await validate() }
+        if didActivate {
+            onSuccess()
+            return
+        }
+
+        Task {
+            await validateWithSupabase()
+        }
     }
 
     @MainActor
-    private func validate() async {
-        let normalized = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !normalized.isEmpty else { messageText = "Ingresa una key para continuar."; return }
+    private func validateWithSupabase() async {
+        let normalized = key.normalizedLicenseKey
+        guard !normalized.isEmpty else {
+            messageText = "Enter a key to continue."
+            return
+        }
+
         key = normalized
         isLoading = true
         defer { isLoading = false }
+
         do {
             let deviceID = DeviceInstallationID.current()
-            let response = try await SupabaseLicenseClient().activate(licenseKey: normalized, deviceID: deviceID)
+            let response = try await client.activate(licenseKey: normalized, deviceID: deviceID)
             messageText = response.message
+
             if response.success {
-                UserDefaults.standard.set(normalized, forKey: "greeg.license.key")
-                UserDefaults.standard.set(deviceID, forKey: "greeg.license.device")
-                UserDefaults.standard.set(true, forKey: "greeg.license.supabaseUnlocked")
+                let defaults = UserDefaults.standard
+                defaults.set(normalized, forKey: "greeg.license.key")
+                defaults.set(deviceID, forKey: "greeg.license.device")
+                defaults.set(true, forKey: "greeg.license.supabaseUnlocked")
                 didActivate = true
+                onSuccess()
             }
         } catch {
             messageText = error.localizedDescription
@@ -339,37 +348,84 @@ private struct SupabaseLicenseResponse: Decodable {
     let message: String
 }
 
+private struct SupabaseRPCError: Decodable {
+    let message: String?
+    let details: String?
+    let hint: String?
+    let code: String?
+}
+
 private enum SupabaseLicenseError: LocalizedError {
-    case invalidResponse
+    case badURL
+    case badResponse
     case server(String)
+    case unreadable(String)
+
     var errorDescription: String? {
         switch self {
-        case .invalidResponse: return "Supabase no devolvió una respuesta válida."
-        case .server(let message): return message
+        case .badURL:
+            return "Could not prepare the Supabase connection."
+        case .badResponse:
+            return "Supabase did not return a valid response."
+        case .server(let message):
+            return message
+        case .unreadable(let message):
+            return message
         }
     }
 }
 
 private final class SupabaseLicenseClient {
+    private let session: URLSession
+    private let decoder = JSONDecoder()
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+
     func activate(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
-        let url = SupabaseLicenseConfig.projectURL.appendingPathComponent("rest/v1/rpc/activate_license")
+        var components = URLComponents(url: SupabaseLicenseConfig.projectURL, resolvingAgainstBaseURL: false)
+        components?.path = "/rest/v1/rpc/activate_license"
+
+        guard let url = components?.url else {
+            throw SupabaseLicenseError.badURL
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 25
         request.setValue(SupabaseLicenseConfig.publishableKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(SupabaseLicenseConfig.publishableKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "p_license_key": licenseKey,
             "p_device_id": deviceID
         ])
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw SupabaseLicenseError.invalidResponse }
-        guard (200..<300).contains(http.statusCode) else {
-            let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
-            throw SupabaseLicenseError.server(message ?? "Error del servidor (HTTP \(http.statusCode)).")
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SupabaseLicenseError.badResponse
         }
-        return try JSONDecoder().decode(SupabaseLicenseResponse.self, from: data)
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            if let rpcError = try? decoder.decode(SupabaseRPCError.self, from: data),
+               let message = rpcError.message,
+               !message.isEmpty {
+                throw SupabaseLicenseError.server(message)
+            }
+
+            let raw = String(data: data, encoding: .utf8) ?? "Error HTTP \(httpResponse.statusCode)."
+            throw SupabaseLicenseError.server(raw)
+        }
+
+        do {
+            return try decoder.decode(SupabaseLicenseResponse.self, from: data)
+        } catch {
+            let raw = String(data: data, encoding: .utf8) ?? "Respuesta vacia."
+            throw SupabaseLicenseError.unreadable("Could not read the Supabase response: \(raw)")
+        }
     }
 }
 
@@ -378,19 +434,24 @@ private enum DeviceInstallationID {
     private static let account = "installation-id"
     private static let fallbackKey = "greeg.license.installationID"
 
-    static func current() -> String {
-        if let value = readKeychain(), !value.isEmpty { return value }
-        if let value = UserDefaults.standard.string(forKey: fallbackKey), !value.isEmpty {
-            saveKeychain(value)
-            return value
+    static func current(defaults: UserDefaults = .standard) -> String {
+        if let existing = readFromKeychain(), !existing.isEmpty {
+            defaults.set(existing, forKey: fallbackKey)
+            return existing
         }
-        let value = "ios-\(UUID().uuidString.lowercased())"
-        UserDefaults.standard.set(value, forKey: fallbackKey)
-        saveKeychain(value)
-        return value
+
+        if let fallback = defaults.string(forKey: fallbackKey), !fallback.isEmpty {
+            _ = saveToKeychain(fallback)
+            return fallback
+        }
+
+        let generated = "ios-\(UUID().uuidString.lowercased())"
+        defaults.set(generated, forKey: fallbackKey)
+        _ = saveToKeychain(generated)
+        return generated
     }
 
-    private static func readKeychain() -> String? {
+    private static func readFromKeychain() -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -398,23 +459,45 @@ private enum DeviceInstallationID {
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let value = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        return value
     }
 
-    private static func saveKeychain(_ value: String) {
+    private static func saveToKeychain(_ value: String) -> Bool {
         let data = Data(value.utf8)
-        let base: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
-        SecItemDelete(base as CFDictionary)
-        var add = base
-        add[kSecValueData as String] = data
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(add as CFDictionary, nil)
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+
+        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if updateStatus == errSecSuccess { return true }
+        guard updateStatus == errSecItemNotFound else { return false }
+
+        var newItem = query
+        attributes.forEach { newItem[$0.key] = $0.value }
+        return SecItemAdd(newItem as CFDictionary, nil) == errSecSuccess
+    }
+}
+
+private extension String {
+    var normalizedLicenseKey: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+            .uppercased()
     }
 }

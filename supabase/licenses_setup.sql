@@ -4,8 +4,21 @@ create table if not exists public.licenses (
     device_id text,
     is_active boolean not null default true,
     activated_at timestamptz,
+    used_at timestamptz,
     created_at timestamptz not null default now()
 );
+
+alter table public.licenses
+    add column if not exists device_id text,
+    add column if not exists is_active boolean not null default true,
+    add column if not exists activated_at timestamptz,
+    add column if not exists used_at timestamptz,
+    add column if not exists created_at timestamptz not null default now();
+
+update public.licenses
+set used_at = coalesce(activated_at, now())
+where used_at is null
+  and (device_id is not null or activated_at is not null);
 
 alter table public.licenses enable row level security;
 

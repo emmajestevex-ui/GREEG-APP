@@ -22,7 +22,7 @@ struct ContentView: View {
         } else if arguments.contains("--simulate-wallpaper-tab") {
             initialTab = 4
         } else {
-            initialTab = 0
+            initialTab = AppSection.patches.rawValue
         }
         _tabNavigation = State(initialValue: AppTabNavigationState(selectedTab: initialTab))
 #else
@@ -97,7 +97,7 @@ struct ContentView: View {
                     )
                 }
             }
-            .navigationTitle("GREEG APP")
+            .navigationTitle("greeg app")
             .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 300)
         } detail: {
             sectionContent(selectedVisibleSection)
@@ -215,123 +215,68 @@ private struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    header
-                    deviceCard
-                    quickActions
-                    featureCard
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 14)
-                .padding(.bottom, 28)
+            List {
+                deviceSection
             }
-            .background(AppTheme.pageBackground.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            .tint(AppTheme.accent)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showLogs = true } label: {
+                        Image(systemName: "apple.terminal")
+                    }
+                    .accessibilityLabel(language.text("accessibility.open_logs"))
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel(language.text("accessibility.open_settings"))
+                }
+            }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showLogs) { LogView() }
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            AppLogo(size: 54)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("GREEG APP")
-                    .font(.system(size: 25, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                Text("Centro de control")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    private var deviceSection: some View {
+        Section {
+            LabeledContent(language.text("dashboard.hardware_model")) {
+                Text(AppInfo.displayMachineName)
+                    .font(.body.monospaced())
             }
-            Spacer()
-            Button { showLogs = true } label: {
-                Image(systemName: "terminal.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 42, height: 42)
-                    .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 13))
+            LabeledContent(language.text("settings.ios_version")) {
+                Text("\(AppInfo.osVersion) (\(AppInfo.osBuild))")
+                    .font(.body.monospaced())
             }
-            Button { showSettings = true } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 42, height: 42)
-                    .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 13))
-            }
-        }
-        .foregroundStyle(AppTheme.accent)
-    }
-
-    private var deviceCard: some View {
-        VStack(alignment: .leading, spacing: 13) {
             HStack {
-                Label("Dispositivo", systemImage: "iphone")
-                    .font(.headline)
+                Text(language.text("settings.compatibility"))
                 Spacer()
                 Text(language.text(appState.isSupported ? "settings.supported" : "settings.unsupported"))
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(appState.isSupported ? Color.green : Color.red)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background((appState.isSupported ? Color.green : Color.red).opacity(0.12), in: Capsule())
+                .foregroundStyle(appState.isSupported ? Color.green : Color.red)
             }
-            Divider().overlay(Color.white.opacity(0.08))
-            HStack {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(AppInfo.displayMachineName)
-                        .font(.title3.weight(.semibold))
-                    Text("iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))")
-                        .font(.subheadline.monospaced())
-                        .foregroundStyle(.secondary)
+
+            if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
+                HStack {
+                    Text(language.text("dashboard.kernel_status"))
+                    Spacer()
+                    if appState.kernelExploitRunning {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text(language.text("dashboard.kernel_running"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text(language.text(appState.exploitStatus.isSuccess ? "dashboard.kernel_active" : "dashboard.kernel_inactive"))
+                        .foregroundStyle(appState.exploitStatus.isSuccess ? Color.green : Color.secondary)
+                    }
                 }
-                Spacer()
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(AppTheme.accent)
             }
+        } header: {
+            Text(language.text("common.device"))
+        } footer: {
+            Text(language.text("settings.supported_range_summary"))
         }
-        .padding(16)
-        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(AppTheme.accent.opacity(0.20)))
-    }
-
-    private var quickActions: some View {
-        HStack(spacing: 12) {
-            quickCard(title: "Parches", subtitle: "Crear y editar", icon: "shippingbox.fill")
-            quickCard(title: "Archivos", subtitle: "Explorar datos", icon: "folder.fill")
-        }
-    }
-
-    private func quickCard(title: String, subtitle: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(AppTheme.accent)
-            Text(title).font(.headline)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    private var featureCard: some View {
-        VStack(spacing: 0) {
-            Toggle(isOn: $cleanerEnabled) {
-                Label(language.text("tab.cleaner"), systemImage: "sparkles")
-                    .foregroundStyle(.white)
-            }
-            .tint(AppTheme.accent)
-            .padding(15)
-            if wallpapersSupported {
-                Divider().padding(.leading, 48)
-                Toggle(isOn: $wallpapersEnabled) {
-                    Label(language.text("tab.wallpapers"), systemImage: "photo.on.rectangle.angled")
-                        .foregroundStyle(.white)
-                }
-                .tint(AppTheme.accent)
-                .padding(15)
-            }
-        }
-        .background(AppTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
