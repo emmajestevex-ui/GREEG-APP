@@ -221,24 +221,47 @@ private struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.pageBackground.ignoresSafeArea()
+            List {
+                Section {
+                    dashboardHero
+                }
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        heroPanel
-                        patchPanel
-                        devicePanel
-
-                        if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
-                            kernelPanel
-                        }
+                Section {
+                    Button(action: onOpenPatches) {
+                        Label("Open Patches", systemImage: "arrow.right.circle.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal, AppTheme.pageInset)
-                    .padding(.top, 12)
-                    .padding(.bottom, 34)
+
+                    HomePatchRow(
+                        icon: "shippingbox.fill",
+                        title: "Asset Indexer",
+                        subtitle: "Avatar asset bundle",
+                        tint: AppTheme.accent
+                    )
+                    HomePatchRow(
+                        icon: "sparkles",
+                        title: "Shaders",
+                        subtitle: "Optional visual bundle",
+                        tint: Color(red: 0.26, green: 0.72, blue: 1.0)
+                    )
+                    HomePatchRow(
+                        icon: "speedometer",
+                        title: "144 fps",
+                        subtitle: "Preferences file",
+                        tint: .green
+                    )
+                } header: {
+                    Text("Built-in patches")
+                }
+
+                deviceSection
+
+                if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
+                    kernelSection
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationBarTitleDisplayMode(.inline)
             .tint(AppTheme.accent)
             .toolbar {
@@ -260,202 +283,114 @@ private struct DashboardView: View {
         }
     }
 
-    private var heroPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 14) {
-                AppLogo(size: 68)
-                    .shadow(color: AppTheme.accent.opacity(0.45), radius: 18)
+    private var dashboardHero: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                AppLogo(size: 64)
+                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 12)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("greeg app")
-                        .font(.system(size: 30, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 29, weight: .black, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
 
                     Text("Private patch control")
-                        .font(.subheadline.weight(.medium))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
-                Spacer(minLength: 8)
+                Spacer()
 
-                HomeStatusPill(
-                    title: appState.isSupported ? "Ready" : "Check",
-                    color: appState.isSupported ? .green : AppTheme.accent
-                )
+                Label(appState.isSupported ? "Ready" : "Check", systemImage: appState.isSupported ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(appState.isSupported ? .green : AppTheme.accent)
             }
 
-            Divider().overlay(Color.white.opacity(0.08))
+            Divider()
 
             HStack(spacing: 0) {
-                HomeStatBlock(value: "3", title: "Patches")
-                HomeDivider()
-                HomeStatBlock(value: "1", title: "Bundle")
-                HomeDivider()
-                HomeStatBlock(
-                    value: appState.isSupported ? "Online" : "Limited",
-                    title: "Status",
-                    tint: appState.isSupported ? .green : AppTheme.accent
-                )
+                HomeMetric(value: "3", title: "Patches")
+                HomeMetric(value: "1", title: "Bundle")
+                HomeMetric(value: appState.isSupported ? "OK" : "Wait", title: "Status")
             }
-        }
-        .greegPanel(padding: 18)
-        .overlay(alignment: .topLeading) {
-            LinearGradient(
-                colors: [AppTheme.accent.opacity(0.18), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .allowsHitTesting(false)
         }
     }
 
-    private var patchPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var deviceSection: some View {
+        Section {
+            LabeledContent(language.text("dashboard.hardware_model")) {
+                Text(AppInfo.displayMachineName)
+                    .font(.body.monospaced())
+            }
+            LabeledContent(language.text("settings.ios_version")) {
+                Text("\(AppInfo.osVersion) (\(AppInfo.osBuild))")
+                    .font(.body.monospaced())
+            }
             HStack {
-                Label("Patch Suite", systemImage: "shippingbox.fill")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-
+                Text(language.text("settings.compatibility"))
                 Spacer()
-
-                Text("3 ready")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(AppTheme.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(AppTheme.accent.opacity(0.13), in: Capsule())
+                Text(language.text(appState.isSupported ? "settings.supported" : "settings.unsupported"))
+                    .fontWeight(.semibold)
+                    .foregroundColor(appState.isSupported ? .green : AppTheme.accent)
             }
-
-            VStack(spacing: 12) {
-                HomeFeatureRow(
-                    icon: "cube.box.fill",
-                    title: "Asset Indexer",
-                    subtitle: "Avatar bundle"
-                )
-                HomeFeatureRow(
-                    icon: "camera.filters",
-                    title: "Shaders",
-                    subtitle: "Visual bundle"
-                )
-                HomeFeatureRow(
-                    icon: "speedometer",
-                    title: "144 fps",
-                    subtitle: "Preferences file"
-                )
-            }
-
-            Button(action: onOpenPatches) {
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.right.circle.fill")
-                    Text("Open Patches")
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .frame(height: 50)
-                .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-            .buttonStyle(.plain)
-        }
-        .greegPanel()
-    }
-
-    private var devicePanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        } header: {
             Text(language.text("common.device"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.bottom, 10)
-
-            HomeInfoRow(
-                title: language.text("dashboard.hardware_model"),
-                value: AppInfo.displayMachineName,
-                monospaced: true
-            )
-            GreegRowDivider()
-            HomeInfoRow(
-                title: language.text("settings.ios_version"),
-                value: "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
-                monospaced: true
-            )
-            GreegRowDivider()
-            HomeInfoRow(
-                title: language.text("settings.compatibility"),
-                value: language.text(appState.isSupported ? "settings.supported" : "settings.unsupported"),
-                valueColor: appState.isSupported ? .green : AppTheme.accent
-            )
+        } footer: {
+            Text(language.text("settings.supported_range_summary"))
         }
-        .greegPanel()
     }
 
-    private var kernelPanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(language.text("dashboard.exploit_access"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.bottom, 10)
-
-            HStack(spacing: 10) {
-                Image(systemName: "apple.terminal")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 28, height: 28)
-
-                Text(language.text("dashboard.kernel_status"))
-                    .foregroundStyle(.primary)
-
+    private var kernelSection: some View {
+        Section(language.text("dashboard.exploit_access")) {
+            HStack {
+                Label(language.text("dashboard.kernel_status"), systemImage: "apple.terminal")
                 Spacer()
-
                 if appState.kernelExploitRunning {
-                    ProgressView()
-                        .controlSize(.small)
+                    ProgressView().controlSize(.small)
                     Text(language.text("dashboard.kernel_running"))
-                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(language.text(appState.exploitStatus.isSuccess ? "dashboard.kernel_active" : "dashboard.kernel_inactive"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(appState.exploitStatus.isSuccess ? Color.green : Color.secondary)
+                        .foregroundColor(appState.exploitStatus.isSuccess ? .green : .secondary)
                 }
             }
         }
-        .greegPanel()
     }
 }
 
-private struct HomeStatusPill: View {
+private struct HomePatchRow: View {
+    let icon: String
     let title: String
-    let color: Color
+    let subtitle: String
+    let tint: Color
 
     var body: some View {
-        Text(title)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(color.opacity(0.14), in: Capsule())
-            .lineLimit(1)
+        HStack(spacing: 12) {
+            AppRowIcon(systemName: icon, tint: tint, symbolSize: 16, frameSize: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundColor(.green)
+        }
+        .padding(.vertical, 2)
     }
 }
 
-private struct HomeStatBlock: View {
+private struct HomeMetric: View {
     let value: String
     let title: String
-    var tint: Color = .white
 
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.headline.weight(.bold))
-                .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(title)
@@ -464,89 +399,5 @@ private struct HomeStatBlock: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-private struct HomeDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.08))
-            .frame(width: 1, height: 34)
-    }
-}
-
-private struct HomeFeatureRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppRowIcon(systemName: icon, symbolSize: 16, frameSize: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.green)
-        }
-    }
-}
-
-private struct HomeInfoRow: View {
-    let title: String
-    let value: String
-    var valueColor: Color = Color.secondary
-    var monospaced = false
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Text(title)
-                .foregroundStyle(.primary)
-            Spacer(minLength: 12)
-            Text(value)
-                .font(monospaced ? .body.monospaced() : .body)
-                .foregroundStyle(valueColor)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-                .minimumScaleFactor(0.76)
-        }
-        .padding(.vertical, 10)
-    }
-}
-
-private struct GreegRowDivider: View {
-    var body: some View {
-        Divider()
-            .overlay(Color.white.opacity(0.08))
-    }
-}
-
-private struct GreegPanelModifier: ViewModifier {
-    let padding: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
-            )
-    }
-}
-
-private extension View {
-    func greegPanel(padding: CGFloat = 16) -> some View {
-        modifier(GreegPanelModifier(padding: padding))
     }
 }

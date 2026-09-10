@@ -26,43 +26,33 @@ struct PatchProjectsView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppTheme.pageBackground.ignoresSafeArea()
+            VStack(spacing: 0) {
+                AppSearchField(
+                    text: $searchText,
+                    prompt: language.text("patch.search"),
+                    clearLabel: language.text("common.clear")
+                )
+                Divider()
+                List {
+                    Section {
+                        PatchListHeader(count: store.items.count)
+                    }
 
-                VStack(spacing: 0) {
-                    PatchListHeader(count: store.items.count)
-                        .padding(.horizontal, AppTheme.pageInset)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
-
-                    AppSearchField(
-                        text: $searchText,
-                        prompt: language.text("patch.search"),
-                        clearLabel: language.text("common.clear")
-                    )
-
-                    List {
-                        if store.items.isEmpty && !store.isBusy {
-                            emptyState
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        } else if filteredItems.isEmpty && !store.isBusy {
-                            searchEmptyState
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        } else {
-                            Section {
-                                ForEach(filteredItems) { item in
-                                    itemRow(item)
-                                }
-                            } header: {
-                                Text("Built-in patches")
+                    if store.items.isEmpty && !store.isBusy {
+                        emptyState
+                            .listRowSeparator(.hidden)
+                    } else if filteredItems.isEmpty && !store.isBusy {
+                        searchEmptyState
+                            .listRowSeparator(.hidden)
+                    } else {
+                        Section("Built-in patches") {
+                            ForEach(filteredItems) { item in
+                                itemRow(item)
                             }
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.insetGrouped)
             }
             .navigationTitle(language.text("patch.title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -145,39 +135,26 @@ private struct PatchListHeader: View {
     var body: some View {
         HStack(spacing: 14) {
             AppLogo(size: 46)
-                .shadow(color: AppTheme.accent.opacity(0.35), radius: 12)
-
             VStack(alignment: .leading, spacing: 4) {
                 Text("GREEG client")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .font(.headline)
                 Text("Asset Indexer, Shaders, and 144 fps")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-
-            Spacer(minLength: 8)
-
+            Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(count)")
                     .font(.title3.weight(.black))
-                    .foregroundStyle(AppTheme.accent)
+                    .foregroundColor(AppTheme.accent)
                 Text(count == 1 ? "patch" : "patches")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(15)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(AppTheme.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-        )
+        .padding(.vertical, 8)
     }
 }
 
@@ -195,42 +172,38 @@ private struct PatchProjectRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            PatchVisualIcon(style: style, size: 42, symbolSize: 18)
-
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 12) {
+            AppRowIcon(
+                systemName: item.isLocked ? "lock.doc.fill" : style.icon,
+                tint: style.tint,
+                symbolSize: 17,
+                frameSize: 34
+            )
+            VStack(alignment: .leading, spacing: 3) {
                 Text(item.project?.name ?? language.text("patch.locked_project"))
-                    .font(.title3.weight(.bold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
-
                 Text(item.isLocked ? language.text("patch.tap_to_unlock") : style.subtitle)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-
-            Spacer(minLength: 10)
-
+            Spacer()
             if item.summary.isPasswordProtected {
                 Image(systemName: "key.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityLabel(language.text("patch.password_protected"))
             } else if !item.isLocked {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(fileCount)")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.primary)
-                    Text(fileCount == 1 ? "file" : "files")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
+                Text(fileCount == 1 ? "1 file" : "\(fileCount) files")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 }
 
@@ -296,16 +269,64 @@ private struct PatchProjectDetailView: View {
         DevicePatchService.latestReceipt(projectID: projectID)
     }
 
+    private var detailStyle: PatchVisualStyle {
+        guard let project = item?.project else { return PatchVisualStyle.locked }
+        return PatchVisualStyle(project: project)
+    }
+
     var body: some View {
-        Group {
-            if let item, let project = item.project {
-                detailContent(project: project)
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.pageBackground)
+        List {
+            if let project = item?.project {
+                Section {
+                    PatchDetailHeader(project: project, style: detailStyle)
+                }
+
+                Section {
+                    ForEach(project.allBundleIdentifiers, id: \.self) { bundleID in
+                        Label {
+                            Text(bundleID)
+                                .font(.subheadline.monospaced())
+                        } icon: {
+                            Image(systemName: "app.dashed")
+                                .foregroundColor(detailStyle.tint)
+                        }
+                    }
+                    LabeledContent(language.text("patch.files")) {
+                        Text("\(project.rules.count)")
+                            .fontWeight(.semibold)
+                    }
+                } header: {
+                    Text(language.text("patch.target_bundle"))
+                }
+
+                Section {
+                    ForEach(project.rules) { rule in
+                        PatchRuleSummary(rule: rule, style: detailStyle)
+                    }
+                } header: {
+                    Text(language.text("patch.rules"))
+                } footer: {
+                    Text(language.text("patch.client_rules_footer"))
+                }
+
+                Section {
+                    Button(action: apply) {
+                        actionLabel("patch.apply", subtitle: "Write the selected preset", systemImage: "checkmark.shield.fill")
+                    }
+                    .disabled(isWorking)
+
+                    if receipt != nil {
+                        Button(role: .destructive, action: restore) {
+                            actionLabel("patch.restore", subtitle: "Bring back the saved original", systemImage: "arrow.uturn.backward.circle")
+                        }
+                        .disabled(isWorking)
+                    }
+                } footer: {
+                    Text(language.text("patch.apply_footer"))
+                }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle(item?.project?.name ?? language.text("patch.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -338,178 +359,6 @@ private struct PatchProjectDetailView: View {
         }
     }
 
-    private func detailContent(project: PatchProject) -> some View {
-        let style = PatchVisualStyle(project: project)
-
-        return ZStack {
-            AppTheme.pageBackground.ignoresSafeArea()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    detailHero(project: project, style: style)
-                    targetPanel(project: project, style: style)
-                    rulesPanel(project: project, style: style)
-                    actionPanel()
-                }
-                .padding(.horizontal, AppTheme.pageInset)
-                .padding(.top, 12)
-                .padding(.bottom, 34)
-            }
-        }
-    }
-
-    private func detailHero(project: PatchProject, style: PatchVisualStyle) -> some View {
-        HStack(spacing: 14) {
-            PatchVisualIcon(style: style, size: 56, symbolSize: 23)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(project.name)
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-
-                Text(style.detail)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            Text(project.rules.count == 1 ? "1 file" : "\(project.rules.count) files")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(style.tint)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(style.tint.opacity(0.14), in: Capsule())
-        }
-        .greegPatchPanel(padding: 18)
-    }
-
-    private func targetPanel(project: PatchProject, style: PatchVisualStyle) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(language.text("patch.target_bundle"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.bottom, 10)
-
-            ForEach(project.allBundleIdentifiers, id: \.self) { bundleID in
-                HStack(spacing: 12) {
-                    Image(systemName: "app.dashed")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(style.tint)
-                        .frame(width: 30, height: 30)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(bundleID)
-                            .font(.headline.monospaced())
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-                        Text("Free Fire TH")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-                }
-                .padding(.vertical, 4)
-            }
-        }
-        .greegPatchPanel()
-    }
-
-    private func rulesPanel(project: PatchProject, style: PatchVisualStyle) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(language.text("patch.rules"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-
-            ForEach(project.rules) { rule in
-                PatchRuleCard(rule: rule, style: style)
-            }
-
-            Text(language.text("patch.client_rules_footer"))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
-        }
-        .greegPatchPanel()
-    }
-
-    private func actionPanel() -> some View {
-        VStack(spacing: 12) {
-            patchActionButton(
-                title: language.text("patch.apply"),
-                subtitle: "Write the selected preset",
-                systemImage: "checkmark.shield.fill",
-                tint: AppTheme.accent,
-                action: apply
-            )
-            .disabled(isWorking)
-
-            if receipt != nil {
-                patchActionButton(
-                    title: language.text("patch.restore"),
-                    subtitle: "Bring back the saved original",
-                    systemImage: "arrow.uturn.backward.circle.fill",
-                    tint: Color.secondary,
-                    action: restore
-                )
-                .disabled(isWorking)
-            }
-
-            Text(language.text("patch.apply_footer"))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func patchActionButton(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 13) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.72))
-                }
-
-                Spacer()
-
-                if isWorking {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.75))
-                }
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 66)
-            .background(tint, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
     private func rename(to newName: String) {
         guard var project = item?.project else { return }
         project.name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -529,6 +378,21 @@ private struct PatchProjectDetailView: View {
                 messageKey: "patch.error.invalid_project"
             )
         }
+    }
+
+    private func actionLabel(_ key: String, subtitle: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(language.text(key))
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func apply() {
@@ -589,66 +453,54 @@ private struct PatchProjectDetailView: View {
     }
 }
 
-private struct PatchRuleCard: View {
+private struct PatchDetailHeader: View {
+    let project: PatchProject
+    let style: PatchVisualStyle
+
+    var body: some View {
+        HStack(spacing: 14) {
+            AppRowIcon(systemName: style.icon, tint: style.tint, symbolSize: 20, frameSize: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.name)
+                    .font(.title2.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(style.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(project.rules.count == 1 ? "1 file" : "\(project.rules.count) files")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(style.tint)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+private struct PatchRuleSummary: View {
     let rule: PatchRule
     let style: PatchVisualStyle
 
     private var targetFilename: String {
-        rule.relativePath.components(separatedBy: "/").last ?? rule.relativePath
+        rule.relativePath.split(separator: "/").last.map(String.init) ?? rule.relativePath
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(style.tint)
-                    .frame(width: 30, height: 30)
-                    .background(style.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(targetFilename)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    Text(rule.relativePath)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "doc.fill")
-                    .font(.caption)
-                    .foregroundStyle(style.tint)
-                Text(rule.replacementFilename)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(style.tint)
-                    .lineLimit(2)
-            }
-            .padding(.leading, 42)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(targetFilename)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+            Text(rule.relativePath)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+            Label(rule.replacementFilename, systemImage: "arrow.triangle.2.circlepath")
+                .font(.caption.weight(.medium))
+                .foregroundColor(style.tint)
+                .lineLimit(2)
         }
-        .padding(12)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-private struct PatchVisualIcon: View {
-    let style: PatchVisualStyle
-    let size: CGFloat
-    let symbolSize: CGFloat
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                .fill(style.tint.opacity(0.14))
-            Image(systemName: style.icon)
-                .font(.system(size: symbolSize, weight: .semibold))
-                .foregroundStyle(style.tint)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .padding(.vertical, 4)
     }
 }
 
@@ -658,14 +510,25 @@ private struct PatchVisualStyle {
     let subtitle: String
     let detail: String
 
+    static let locked = PatchVisualStyle(
+        icon: "lock.doc.fill",
+        tint: Color.gray,
+        subtitle: "Locked preset",
+        detail: "Password protected"
+    )
+
+    private init(icon: String, tint: Color, subtitle: String, detail: String) {
+        self.icon = icon
+        self.tint = tint
+        self.subtitle = subtitle
+        self.detail = detail
+    }
+
     init(item: PatchLibraryItem) {
         if let project = item.project {
             self.init(project: project)
         } else {
-            icon = "lock.doc.fill"
-            tint = Color.secondary
-            subtitle = "Locked preset"
-            detail = "Password protected"
+            self = PatchVisualStyle.locked
         }
     }
 
@@ -678,7 +541,7 @@ private struct PatchVisualStyle {
 
         if searchable.contains("plist") || searchable.contains("144") {
             icon = "speedometer"
-            tint = .green
+            tint = Color.green
             subtitle = "FPS preferences"
             detail = "Library preferences"
         } else if searchable.contains("shader") {
@@ -739,28 +602,5 @@ private struct PatchNameEditorView: View {
         guard !trimmedName.isEmpty else { return }
         onSave(trimmedName)
         dismiss()
-    }
-}
-
-private struct GreegPatchPanelModifier: ViewModifier {
-    let padding: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
-            )
-    }
-}
-
-private extension View {
-    func greegPatchPanel(padding: CGFloat = 16) -> some View {
-        modifier(GreegPatchPanelModifier(padding: padding))
     }
 }
