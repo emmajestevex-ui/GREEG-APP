@@ -5,7 +5,7 @@ enum AppTheme {
     static let accentGlow = Color(red: 1.00, green: 0.16, blue: 0.18)
     static let pageBackground = Color.black
     static let consoleBackground = Color(red: 0.055, green: 0.055, blue: 0.065)
-    static let cardBackground = Color(red: 0.095, green: 0.095, blue: 0.11)
+    static let cardBackground = Color(red: 0.075, green: 0.075, blue: 0.085)
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
     static let rowIconFrame: CGFloat = 28
@@ -69,12 +69,12 @@ struct AppSearchField: View {
         .padding(.horizontal, 11)
         .frame(minHeight: 36)
         .background(
-            Color(uiColor: .secondarySystemFill),
+            AppTheme.cardBackground,
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
         .padding(.horizontal, AppTheme.pageInset)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(AppTheme.pageBackground)
     }
 }
 
