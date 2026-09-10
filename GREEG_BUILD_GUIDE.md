@@ -1,96 +1,30 @@
-# GREEG APP - Guia breve de subida y compilacion
+# GREEG APP — Build rápido con GitHub Actions
 
-Este paquete es el proyecto original de GREEG APP actualizado para usar Supabase en la pantalla de activacion.
+Este paquete cambia la identidad visual del proyecto a GREEG APP, usa el logo proporcionado, fuerza tema oscuro con acento rojo e incluye una pantalla local de acceso con claves GREEG-1 ... GREEG-1000.
 
-## 1. Supabase
+## Compilar en GitHub
+1. Crea un repositorio nuevo y sube TODO el contenido de esta carpeta (incluida `.github`).
+2. Abre la pestaña **Actions** del repositorio.
+3. Entra a **Build GREEG APP (unsigned)**.
+4. Pulsa **Run workflow** → **Run workflow**.
+5. Espera a que termine el trabajo.
+6. Abre la ejecución terminada y descarga el artefacto **GREEG-APP-unsigned**.
+7. Dentro estará `GREEG-APP-unsigned.ipa`.
 
-La app ya esta configurada con:
+La IPA generada por el workflow no se firma. Debes usar tu método de firma autorizado después.
 
-```text
-Project URL: https://qlfugpumolehqzzuvocn.supabase.co
-Publishable key: sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y
-Funcion: public.activate_license(p_license_key text, p_device_id text)
-```
+## Sobre las keys
+La pantalla incluida acepta `GREEG-1` hasta `GREEG-1000` y guarda localmente la key y el identificador del dispositivo. Esto sirve como bloqueo local de la instalación.
 
-Si necesitas recrear la tabla o la funcion, usa estos archivos:
+**Importante:** sin un servidor no es posible garantizar que una key usada en un iPhone quede inutilizable mundialmente en otro iPhone. Para keys realmente de un solo uso necesitas un backend que registre activaciones.
 
-```text
-supabase/licenses_setup.sql
-supabase/activate_license.sql
-```
+## Cambios realizados
+- Nombre visible: GREEG APP
+- Logo del usuario como App Icon y logo interno
+- Tema oscuro permanente
+- Acento rojo
+- Pantalla de acceso por key
+- Textos visibles principales de marca cambiados a GREEG APP
+- Workflow de GitHub Actions para generar una IPA sin firmar
 
-No pongas ninguna `secret key` ni `service_role` dentro de la app.
-
-## 2. Subir a GitHub
-
-1. Crea un repositorio nuevo, por ejemplo `GREEG-APP`.
-2. No agregues README automatico.
-3. Descomprime este ZIP.
-4. Sube todo el contenido de la carpeta `3105-1.1.1`.
-5. Asegurate de que suba tambien la carpeta `.github`.
-
-La estructura debe quedar asi:
-
-```text
-GREEG-APP/
-├── .github/workflows/build-ios.yml
-├── ThreeOneOSFive/
-├── ThreeOneOSFive.xcodeproj/
-├── supabase/
-├── README.md
-└── GREEG_BUILD_GUIDE.md
-```
-
-## 3. Compilar la IPA unsigned
-
-1. Entra al repositorio en GitHub.
-2. Abre `Actions`.
-3. Entra en `Build GREEG APP (unsigned)`.
-4. Pulsa `Run workflow`.
-5. Espera a que termine en verde.
-6. Abre la ejecucion terminada.
-7. Descarga el artifact `GREEG-APP-unsigned`.
-
-Dentro estara:
-
-```text
-GREEG-APP-unsigned.ipa
-```
-
-La IPA queda sin firmar para que despues uses tu metodo de firma autorizado.
-
-## 4. Como funciona la activacion
-
-Cuando el cliente escribe una key, la app envia a Supabase:
-
-```json
-{
-  "p_license_key": "GREEG-1",
-  "p_device_id": "ios-identificador-persistente"
-}
-```
-
-Supabase responde:
-
-```json
-{
-  "success": true,
-  "message": "Key activada correctamente"
-}
-```
-
-Si `success` es `true`, la app guarda el acceso localmente. Si `success` es `false`, muestra el mensaje devuelto por Supabase.
-
-El identificador del iPhone se genera una sola vez y se guarda en Keychain. Al volver a abrir la app, se revalida la key guardada contra Supabase para respetar keys desactivadas.
-
-## 5. Cambios hechos
-
-- Pantalla de activacion conectada a Supabase.
-- Uso de la funcion `activate_license`.
-- ID persistente de instalacion guardado en Keychain.
-- Manejo de `success` y `message`.
-- Diseno negro/rojo conservado.
-- Workflow de GitHub Actions para generar IPA unsigned.
-- Nombre visible reforzado como `GREEG APP`.
-
-No se modificaron los archivos internos de exploit ni se agregaron nuevas funciones de ese tipo.
+No se modificaron los archivos de exploit ni su implementación interna.

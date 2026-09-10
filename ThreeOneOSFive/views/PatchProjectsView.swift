@@ -420,7 +420,7 @@ private struct PatchProjectDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isWorking {
                     ProgressView()
-                } else if !isWorkspaceProject {
+                } else {
                     Button(language.text("patch.edit")) { showEditor = true }
                         .disabled(item?.project == nil)
                 }

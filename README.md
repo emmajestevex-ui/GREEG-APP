@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="docs/images/app-icon.png" width="132" alt="GREEG APP icon">
+  <img src="docs/images/app-icon.png" width="132" alt="3105 app icon">
 </p>
 
-<h1 align="center">GREEG APP</h1>
+<h1 align="center">3105</h1>
 
 <p align="center">
   A native iOS workspace for app-container files, portable patches, limited cleanup, and PosterBoard wallpaper packages.
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.2.0-E6753A?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-E6753A?style=flat-square">
   <img alt="iOS" src="https://img.shields.io/badge/iOS-17.0–18.7.1%20%7C%2026.0–26.6.1%20%7C%2027%20beta%201–4-222222?style=flat-square">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5-F05138?style=flat-square&logo=swift&logoColor=white">
   <img alt="Languages" src="https://img.shields.io/badge/languages-English%20%7C%20Tiếng%20Việt%20%7C%20简体中文-E6753A?style=flat-square">
@@ -23,13 +23,7 @@
 </p>
 
 > [!WARNING]
-> GREEG APP is research software for personal device management. Keep a backup and use it only on devices and data you own. Simulator screenshots demonstrate UI only; they do not verify device-level access.
-
-## GREEG APP activation
-
-This package includes a Supabase-backed client activation screen. It calls `public.activate_license(p_license_key, p_device_id)` using the configured Supabase project URL and publishable key, stores a persistent installation ID in Keychain, and displays the `success/message` response returned by Supabase.
-
-The app does not include any Supabase secret key or service role key. See [GREEG_BUILD_GUIDE.md](GREEG_BUILD_GUIDE.md) for upload and unsigned IPA build steps.
+> 3105 is research software for personal device management. Keep a backup and use it only on devices and data you own. Simulator screenshots demonstrate UI only; they do not verify device-level access.
 
 ## Preview
 
