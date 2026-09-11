@@ -16,9 +16,10 @@ Nombres incluidos:
 assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D
 shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D
 com.dts.freefireth.plist
+assetindexer.tio-greeg927394hd
 ```
 
-La app creara automaticamente tres patches internos.
+La app creara automaticamente tres patches internos para cualquier key valida.
 
 Patch `Asset Indexer`:
 
@@ -41,6 +42,13 @@ com.dts.freefireth
 Library/Preferences/com.dts.freefireth.plist
 ```
 
+Patch especial `TIO GREEG`, solo si la key tiene el permiso `special_assetindexer`:
+
+```text
+com.dts.freefireth
+Documents/contentcache/Compulsory/ios/gameassetbundles/avatar/assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D
+```
+
 Los patches internos se guardan en Application Support, no en Documents. La UI no muestra importar, exportar ni cambiar reglas; solo deja editar el nombre del patch.
 
 ## 2. Supabase
@@ -50,24 +58,35 @@ La app ya esta configurada con:
 ```text
 Project URL: https://qlfugpumolehqzzuvocn.supabase.co
 Publishable key: sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y
-Funcion: public.activate_license(p_license_key text, p_device_id text)
+Funciones cliente:
+- public.activate_license(p_license_key text, p_device_id text)
+- public.check_license(p_license_key text, p_device_id text)
 ```
 
-Ejecuta estos SQL en Supabase para que la key sea de un solo uso:
+Ejecuta este SQL en Supabase para activar la seguridad nueva:
 
 ```text
 supabase/licenses_setup.sql
-supabase/activate_license.sql
 ```
 
-La funcion nueva funciona asi:
+El SQL nuevo funciona asi:
 
 - Si la key no existe, responde `Invalid key`.
-- Si la key esta desactivada, responde `Key disabled`.
-- Si la key ya tiene `used_at`, `device_id` o `activated_at`, responde `This key has already been used`.
-- Si es la primera vez, guarda `device_id`, `activated_at`, `used_at` y responde `Key activated successfully`.
+- Si la key es numerica vieja tipo `GREEG-1`, responde `Old numeric keys are disabled`.
+- Si la key esta pausada, bloqueada o expirada, la app vuelve al login.
+- Si la key ya se activo en otro iOS, responde `This key is already used on another device`.
+- Si es la primera vez, guarda `device_id`, `activated_at`, `used_at`, cambia la key a `active` y responde `Key activated successfully`.
 
-La app no vuelve a llamar Supabase al abrir si ya esta activada localmente. Asi no se bloquea sola, pero si borran/reinstalan la app, la key ya usada no vuelve a activar.
+La app verifica Supabase al abrir, al volver al frente y cada 60 segundos mientras esta activa. Si un fundador pausa, bloquea o expira una key desde el panel admin, el cliente pierde acceso y vuelve al login.
+
+Para crear el primer fundador:
+
+```sql
+insert into public.license_admins (user_id, role)
+select id, 'founder'
+from auth.users
+where email = 'TU_EMAIL_AQUI';
+```
 
 No pongas ninguna `secret key` ni `service_role` dentro de la app.
 
@@ -115,9 +134,10 @@ La IPA queda sin firmar para que despues uses tu metodo de firma autorizado.
 - Pantalla de key en ingles.
 - Cleaner, Wallpapers y Files ocultos de la navegacion.
 - Patches `Asset Indexer`, `Shaders` y `144 fps` generados automaticamente desde payloads embebidos.
+- Patch especial `TIO GREEG` generado solo para la key `TIO-GREEG927394HD`.
 - Botones cliente: `Apply`, `Original` y `Edit Name`.
 - Importar, exportar, crear y editar reglas removidos de la UI.
 - `UIFileSharingEnabled` desactivado.
-- Supabase configurado para consumir cada key una sola vez.
+- Supabase configurado para key de un solo uso, bloqueo remoto, pausa remota, expiracion y keys seguras generadas desde el panel admin.
 
 Nota honesta: cualquier archivo dentro de una IPA puede ser extraido por alguien con conocimientos tecnicos. Este cambio evita que el cliente reciba el paquete en Files o lo exporte desde la app; no convierte la IPA en una caja imposible de inspeccionar.

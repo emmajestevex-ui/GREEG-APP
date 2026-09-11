@@ -6,8 +6,10 @@ Private client build with Supabase key activation and automatic bundled patches.
 
 - Shows the app as `greeg app`.
 - Requires a Supabase license key before opening the app.
-- Consumes each key one time on the server.
+- Consumes each key one time on the server and binds it to one iOS device ID.
+- Re-checks the license on launch, foreground, and every 60 seconds while active.
 - Creates the internal `Asset Indexer`, `Shaders`, and `144 fps` patches automatically after activation.
+- Shows the extra `TIO GREEG` patch only for the special key `TIO-GREEG927394HD`.
 - Lets the client use `Apply`, `Original`, and name editing only.
 - Hides Files, Cleaner, Wallpapers, patch creation, import, export, and editing.
 
@@ -25,6 +27,7 @@ Included names:
 assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D
 shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D
 com.dts.freefireth.plist
+assetindexer.tio-greeg927394hd
 ```
 
 Patch targets:
@@ -38,6 +41,11 @@ Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9Q
 
 144 fps:
 Library/Preferences/com.dts.freefireth.plist
+
+TIO GREEG, only for `TIO-GREEG927394HD`:
+Documents/contentcache/Compulsory/ios/gameassetbundles/avatar/assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D
 ```
+
+Run `supabase/licenses_setup.sql` before using the app. It disables old numeric keys like `GREEG-1`, adds secure key generation, and creates the admin RPC functions.
 
 See `GREEG_BUILD_GUIDE.md` for Supabase setup and GitHub Actions build steps.
