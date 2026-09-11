@@ -77,7 +77,7 @@ El SQL nuevo funciona asi:
 - Si la key ya se activo en otro iOS, responde `This key is already used on another device`.
 - Si es la primera vez, guarda `device_id`, `activated_at`, `used_at`, cambia la key a `active` y responde `Key activated successfully`.
 
-La app verifica Supabase al abrir, al volver al frente y cada 60 segundos mientras esta activa. Si un fundador pausa, bloquea o expira una key desde el panel admin, el cliente pierde acceso y vuelve al login.
+La app verifica Supabase al abrir, al volver al frente y cada 10 segundos mientras esta activa. Si un fundador pausa, bloquea o expira una key desde el panel admin, el cliente pierde acceso y vuelve al login.
 
 Para crear el primer fundador:
 

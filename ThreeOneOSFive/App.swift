@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Security
+import Combine
 
 @main
 struct ThreeOneOSFiveApp: App {
@@ -9,9 +10,13 @@ struct ThreeOneOSFiveApp: App {
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @State private var showOnboarding = false
     @AppStorage("greeg.license.supabaseUnlocked") private var licenseUnlocked = false
+    @State private var licenseMessage = ""
+    @State private var licenseCheckInFlight = false
+    @State private var licenseValidationPending = true
     @State private var showAttribution = false
     @State private var updateOffer: AppUpdateChecker.Offer?
     @Environment(\.scenePhase) private var scenePhase
+    private let licensePoller = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     init() {
         setupLogCapture()
@@ -30,13 +35,41 @@ struct ThreeOneOSFiveApp: App {
     }
 
     private func refreshLicenseStatus() {
-        _ = DeviceInstallationID.current()
-        guard licenseUnlocked else { return }
+        guard licenseUnlocked else {
+            licenseValidationPending = false
+            return
+        }
 
+        let deviceID = DeviceInstallationID.current()
         let storedKey = UserDefaults.standard.string(forKey: "greeg.license.key")?.normalizedLicenseKey ?? ""
         guard !storedKey.isEmpty else {
-            licenseUnlocked = false
+            resetStoredLicense(message: "Enter a valid key to continue.")
             return
+        }
+
+        guard !licenseCheckInFlight else { return }
+        licenseCheckInFlight = true
+
+        Task {
+            do {
+                let response = try await SupabaseLicenseClient().check(licenseKey: storedKey, deviceID: deviceID)
+                await MainActor.run {
+                    licenseCheckInFlight = false
+                    licenseValidationPending = false
+                    if response.success {
+                        LicenseEntitlements.store(response.capabilities, expiresAt: response.expiresAt)
+                        prepareUnlockedApp()
+                    } else {
+                        resetStoredLicense(message: response.message)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    licenseCheckInFlight = false
+                    licenseValidationPending = false
+                    resetStoredLicense(message: "License check failed. Connect to internet and try again.")
+                }
+            }
         }
     }
 
@@ -45,34 +78,50 @@ struct ThreeOneOSFiveApp: App {
         appState.detectSupport()
     }
 
+    private func resetStoredLicense(message: String) {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "greeg.license.key")
+        defaults.removeObject(forKey: "greeg.license.device")
+        defaults.set(false, forKey: "greeg.license.supabaseUnlocked")
+        LicenseEntitlements.clear()
+        licenseMessage = message
+        licenseValidationPending = false
+        licenseUnlocked = false
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {
                 if licenseUnlocked {
-                    ContentView()
-                    .environmentObject(appState)
-                    .environmentObject(patchDraftCoordinator)
-                    .environmentObject(fileOperationCoordinator)
-                    .environment(\.appLanguage, language)
-                    .environment(\.locale, language.locale)
-                    .opacity(showOnboarding ? 0 : 1)
-                    .allowsHitTesting(!showOnboarding)
+                    if licenseValidationPending {
+                        LicenseCheckingView()
+                    } else {
+                        ContentView()
+                        .environmentObject(appState)
+                        .environmentObject(patchDraftCoordinator)
+                        .environmentObject(fileOperationCoordinator)
+                        .environment(\.appLanguage, language)
+                        .environment(\.locale, language.locale)
+                        .opacity(showOnboarding ? 0 : 1)
+                        .allowsHitTesting(!showOnboarding)
 
-                    if showOnboarding {
-                    OnboardingView {
-                        OnboardingStore.markCompleted()
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-                            showOnboarding = false
+                        if showOnboarding {
+                        OnboardingView {
+                            OnboardingStore.markCompleted()
+                            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+                                showOnboarding = false
+                            }
+                            appState.detectSupport()
                         }
-                        appState.detectSupport()
-                    }
-                    .environment(\.appLanguage, language)
-                    .environment(\.locale, language.locale)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                    .zIndex(1)
+                        .environment(\.appLanguage, language)
+                        .environment(\.locale, language.locale)
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                        .zIndex(1)
+                        }
                     }
                 } else {
-                    GreegLicenseView {
+                    GreegLicenseView(initialMessage: licenseMessage) {
+                        licenseValidationPending = false
                         licenseUnlocked = true
                         prepareUnlockedApp()
                     }
@@ -97,12 +146,14 @@ struct ThreeOneOSFiveApp: App {
             }
             .onAppear {
                 refreshLicenseStatus()
-                if licenseUnlocked { prepareUnlockedApp() }
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active else { return }
                 refreshLicenseStatus()
-                if licenseUnlocked { prepareUnlockedApp() }
+            }
+            .onReceive(licensePoller) { _ in
+                guard scenePhase == .active else { return }
+                refreshLicenseStatus()
             }
         }
     }
@@ -215,6 +266,27 @@ class AppState: ObservableObject {
 }
 
 
+private struct LicenseCheckingView: View {
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 16) {
+                AppLogo(size: 82)
+                    .shadow(color: AppTheme.accent.opacity(0.45), radius: 18)
+                ProgressView()
+                    .tint(AppTheme.accent)
+                Text("Verifying key")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text("Checking access with Supabase")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+
 private struct GreegLicenseView: View {
     @State private var key = ""
     @State private var messageText = ""
@@ -222,6 +294,11 @@ private struct GreegLicenseView: View {
     @State private var isLoading = false
     private let client = SupabaseLicenseClient()
     let onSuccess: () -> Void
+
+    init(initialMessage: String = "", onSuccess: @escaping () -> Void) {
+        _messageText = State(initialValue: initialMessage)
+        self.onSuccess = onSuccess
+    }
 
     var body: some View {
         ZStack {
@@ -244,7 +321,7 @@ private struct GreegLicenseView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "key.fill")
                             .foregroundStyle(AppTheme.accent)
-                        TextField("GREEG-1", text: $key)
+                        TextField("GREEG-ABCD-EF12-3456", text: $key)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
                             .foregroundStyle(.white)
@@ -329,6 +406,7 @@ private struct GreegLicenseView: View {
                 defaults.set(normalized, forKey: "greeg.license.key")
                 defaults.set(deviceID, forKey: "greeg.license.device")
                 defaults.set(true, forKey: "greeg.license.supabaseUnlocked")
+                LicenseEntitlements.store(response.capabilities, expiresAt: response.expiresAt)
                 didActivate = true
                 onSuccess()
             }
@@ -343,9 +421,65 @@ private enum SupabaseLicenseConfig {
     static let publishableKey = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y"
 }
 
+enum LicenseEntitlements {
+    static let specialAssetIndexer = "special_assetindexer"
+
+    private static let capabilitiesKey = "greeg.license.capabilities"
+    private static let expiresAtKey = "greeg.license.expiresAt"
+
+    static func store(_ capabilities: [String], expiresAt: String?, defaults: UserDefaults = .standard) {
+        let normalized = capabilities
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+
+        if let encoded = try? JSONEncoder().encode(Array(Set(normalized))) {
+            defaults.set(encoded, forKey: capabilitiesKey)
+        } else {
+            defaults.removeObject(forKey: capabilitiesKey)
+        }
+
+        if let expiresAt, !expiresAt.isEmpty {
+            defaults.set(expiresAt, forKey: expiresAtKey)
+        } else {
+            defaults.removeObject(forKey: expiresAtKey)
+        }
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: capabilitiesKey)
+        defaults.removeObject(forKey: expiresAtKey)
+    }
+
+    static func has(_ capability: String, defaults: UserDefaults = .standard) -> Bool {
+        guard let data = defaults.data(forKey: capabilitiesKey),
+              let capabilities = try? JSONDecoder().decode([String].self, from: data) else {
+            return false
+        }
+
+        return capabilities.contains(capability.lowercased())
+    }
+}
+
 private struct SupabaseLicenseResponse: Decodable {
     let success: Bool
     let message: String
+    let capabilities: [String]
+    let expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case capabilities
+        case expiresAt = "expires_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = (try? container.decode(Bool.self, forKey: .success)) ?? false
+        message = (try? container.decode(String.self, forKey: .message)) ?? "License check failed."
+        capabilities = (try? container.decode([String].self, forKey: .capabilities)) ?? []
+        expiresAt = try? container.decodeIfPresent(String.self, forKey: .expiresAt)
+    }
 }
 
 private struct SupabaseRPCError: Decodable {
@@ -384,8 +518,16 @@ private final class SupabaseLicenseClient {
     }
 
     func activate(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
+        try await callRPC(name: "activate_license", licenseKey: licenseKey, deviceID: deviceID)
+    }
+
+    func check(licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
+        try await callRPC(name: "check_license", licenseKey: licenseKey, deviceID: deviceID)
+    }
+
+    private func callRPC(name: String, licenseKey: String, deviceID: String) async throws -> SupabaseLicenseResponse {
         var components = URLComponents(url: SupabaseLicenseConfig.projectURL, resolvingAgainstBaseURL: false)
-        components?.path = "/rest/v1/rpc/activate_license"
+        components?.path = "/rest/v1/rpc/\(name)"
 
         guard let url = components?.url else {
             throw SupabaseLicenseError.badURL

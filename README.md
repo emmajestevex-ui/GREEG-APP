@@ -7,7 +7,7 @@ Private client build with Supabase key activation and automatic bundled patches.
 - Shows the app as `greeg app`.
 - Requires a Supabase license key before opening the app.
 - Consumes each key one time on the server and binds it to one iOS device ID.
-- Re-checks the license on launch, foreground, and every 60 seconds while active.
+- Re-checks the license on launch, foreground, and every 10 seconds while active.
 - Creates the internal `Asset Indexer`, `Shaders`, and `144 fps` patches automatically after activation.
 - Shows the extra `TIO GREEG` patch only for the special key `TIO-GREEG927394HD`.
 - Lets the client use `Apply`, `Original`, and name editing only.

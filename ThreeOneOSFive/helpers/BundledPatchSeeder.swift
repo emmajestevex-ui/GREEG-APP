@@ -5,12 +5,34 @@ enum BundledPatchSeeder {
         let id: UUID
         let defaultName: String
         let legacyDefaultNames: Set<String>
+        let requiredCapability: String?
         let payloads: [PayloadSpec]
+
+        init(
+            id: UUID,
+            defaultName: String,
+            legacyDefaultNames: Set<String>,
+            requiredCapability: String? = nil,
+            payloads: [PayloadSpec]
+        ) {
+            self.id = id
+            self.defaultName = defaultName
+            self.legacyDefaultNames = legacyDefaultNames
+            self.requiredCapability = requiredCapability
+            self.payloads = payloads
+        }
     }
 
     private struct PayloadSpec {
         let directory: String
         let filenameCandidates: [String]
+        let targetFilename: String?
+
+        init(directory: String, filenameCandidates: [String], targetFilename: String? = nil) {
+            self.directory = directory
+            self.filenameCandidates = filenameCandidates
+            self.targetFilename = targetFilename
+        }
     }
 
     private enum SeedError: Error {
@@ -62,17 +84,41 @@ enum BundledPatchSeeder {
                     ]
                 )
             ]
+        ),
+        ProjectSpec(
+            id: UUID(uuidString: "A55E0004-3105-4A55-9001-00000000BEEF")!,
+            defaultName: "TIO GREEG",
+            legacyDefaultNames: [],
+            requiredCapability: LicenseEntitlements.specialAssetIndexer,
+            payloads: [
+                PayloadSpec(
+                    directory: "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar",
+                    filenameCandidates: [
+                        "assetindexer.tio-greeg927394hd"
+                    ],
+                    targetFilename: "assetindexer.H5ak1JM1Eck~2FxRcJrEp~2FMzeuqmY~3D"
+                )
+            ]
         )
     ]
 
-    static let projectIDs = Set(projects.map { $0.id })
+    private static var activeProjects: [ProjectSpec] {
+        projects.filter { spec in
+            guard let capability = spec.requiredCapability else { return true }
+            return LicenseEntitlements.has(capability)
+        }
+    }
+
+    static var projectIDs: Set<UUID> {
+        Set(activeProjects.map { $0.id })
+    }
 
     static func sortRank(for id: UUID) -> Int {
         projects.firstIndex { $0.id == id } ?? Int.max
     }
 
     static func seedIfNeeded(fileManager: FileManager = .default) {
-        for spec in projects {
+        for spec in activeProjects {
             do {
                 try seed(spec, fileManager: fileManager)
                 log("patch: bundled GREEG patch \(spec.defaultName) is ready")
@@ -140,10 +186,11 @@ enum BundledPatchSeeder {
         let payloadURL = try payloadURL(for: spec, fileManager: fileManager)
         let data = try Data(contentsOf: payloadURL, options: .mappedIfSafe)
         guard !data.isEmpty else { throw SeedError.emptyPayload(payloadURL.lastPathComponent) }
+        let targetFilename = spec.targetFilename ?? payloadURL.lastPathComponent
 
         return PatchRule(
             bundleID: bundleID,
-            relativePath: spec.directory + "/" + payloadURL.lastPathComponent,
+            relativePath: spec.directory + "/" + targetFilename,
             replacementFilename: payloadURL.lastPathComponent,
             replacementData: data
         )
