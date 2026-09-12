@@ -3,7 +3,6 @@ import UIKit
 
 struct ContentView: View {
     @Environment(\.appLanguage) private var language
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var patchDraftCoordinator: PatchDraftCoordinator
     @State private var tabNavigation: AppTabNavigationState
     @AppStorage(FeatureVisibility.cleanerStorageKey) private var cleanerEnabled = true
@@ -31,13 +30,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        Group {
-            if horizontalSizeClass == .regular {
-                regularLayout
-            } else {
-                compactLayout
-            }
-        }
+        compactLayout
         .tint(AppTheme.accent)
         .imageScale(.small)
         .onChange(of: patchDraftCoordinator.request?.id) { requestID in
@@ -70,40 +63,6 @@ struct ContentView: View {
                     .tag(section.rawValue)
             }
         }
-    }
-
-    private var regularLayout: some View {
-        NavigationSplitView {
-            List {
-                ForEach(featureVisibility.visibleSections) { section in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            tabNavigation.select(section.rawValue)
-                        }
-                    } label: {
-                        Label(language.text(section.titleKey), systemImage: section.systemImage)
-                            .fontWeight(section.rawValue == tabNavigation.selectedTab ? .semibold : .regular)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(
-                        section.rawValue == tabNavigation.selectedTab
-                            ? AppTheme.accent.opacity(0.14)
-                            : Color.clear
-                    )
-                    .accessibilityAddTraits(
-                        section.rawValue == tabNavigation.selectedTab ? .isSelected : []
-                    )
-                }
-            }
-            .navigationTitle("greeg app")
-            .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 300)
-        } detail: {
-            sectionContent(selectedVisibleSection)
-                .id(selectedVisibleSection.rawValue)
-        }
-        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder
@@ -210,10 +169,7 @@ private extension AppSection {
 }
 
 private struct DashboardView: View {
-    @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
-    @State private var showSettings = false
-    @State private var showLogs = false
     @Binding var cleanerEnabled: Bool
     @Binding var wallpapersEnabled: Bool
     let wallpapersSupported: Bool
@@ -255,31 +211,10 @@ private struct DashboardView: View {
                     Text("Built-in patches")
                 }
 
-                deviceSection
-
-                if appState.kernelExploitApplicable && AppInfo.versionTuple.major < 26 {
-                    kernelSection
-                }
             }
             .listStyle(.insetGrouped)
             .navigationBarTitleDisplayMode(.inline)
             .tint(AppTheme.accent)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showLogs = true } label: {
-                        Image(systemName: "apple.terminal")
-                    }
-                    .accessibilityLabel(language.text("accessibility.open_logs"))
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel(language.text("accessibility.open_settings"))
-                }
-            }
-            .sheet(isPresented: $showSettings) { SettingsView() }
-            .sheet(isPresented: $showLogs) { LogView() }
         }
     }
 
@@ -317,46 +252,6 @@ private struct DashboardView: View {
         }
     }
 
-    private var deviceSection: some View {
-        Section {
-            LabeledContent(language.text("dashboard.hardware_model")) {
-                Text(AppInfo.displayMachineName)
-                    .font(.body.monospaced())
-            }
-            LabeledContent(language.text("settings.ios_version")) {
-                Text("\(AppInfo.osVersion) (\(AppInfo.osBuild))")
-                    .font(.body.monospaced())
-            }
-            HStack {
-                Text(language.text("settings.compatibility"))
-                Spacer()
-                Text(language.text(appState.isSupported ? "settings.supported" : "settings.unsupported"))
-                    .fontWeight(.semibold)
-                    .foregroundColor(appState.isSupported ? .green : AppTheme.accent)
-            }
-        } header: {
-            Text(language.text("common.device"))
-        } footer: {
-            Text(language.text("settings.supported_range_summary"))
-        }
-    }
-
-    private var kernelSection: some View {
-        Section(language.text("dashboard.exploit_access")) {
-            HStack {
-                Label(language.text("dashboard.kernel_status"), systemImage: "apple.terminal")
-                Spacer()
-                if appState.kernelExploitRunning {
-                    ProgressView().controlSize(.small)
-                    Text(language.text("dashboard.kernel_running"))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(language.text(appState.exploitStatus.isSuccess ? "dashboard.kernel_active" : "dashboard.kernel_inactive"))
-                        .foregroundColor(appState.exploitStatus.isSuccess ? .green : .secondary)
-                }
-            }
-        }
-    }
 }
 
 private struct HomePatchRow: View {

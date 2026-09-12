@@ -16,7 +16,7 @@ struct ThreeOneOSFiveApp: App {
     @State private var showAttribution = false
     @State private var updateOffer: AppUpdateChecker.Offer?
     @Environment(\.scenePhase) private var scenePhase
-    private let licensePoller = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
+    private let licensePoller = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     init() {
         setupLogCapture()
@@ -35,15 +35,13 @@ struct ThreeOneOSFiveApp: App {
     }
 
     private func refreshLicenseStatus() {
-        guard licenseUnlocked else {
-            licenseValidationPending = false
-            return
-        }
-
         let deviceID = DeviceInstallationID.current()
         let storedKey = UserDefaults.standard.string(forKey: "greeg.license.key")?.normalizedLicenseKey ?? ""
         guard !storedKey.isEmpty else {
-            resetStoredLicense(message: "Enter a valid key to continue.")
+            licenseValidationPending = false
+            if licenseUnlocked {
+                lockStoredLicense(message: "Enter a valid key to continue.")
+            }
             return
         }
 
@@ -57,36 +55,45 @@ struct ThreeOneOSFiveApp: App {
                     licenseCheckInFlight = false
                     licenseValidationPending = false
                     if response.success {
+                        let defaults = UserDefaults.standard
+                        defaults.set(storedKey, forKey: "greeg.license.key")
+                        defaults.set(deviceID, forKey: "greeg.license.device")
+                        defaults.set(true, forKey: "greeg.license.supabaseUnlocked")
+                        licenseMessage = ""
+                        licenseUnlocked = true
                         LicenseEntitlements.store(response.capabilities, expiresAt: response.expiresAt)
                         prepareUnlockedApp()
                     } else {
-                        resetStoredLicense(message: response.message)
+                        lockStoredLicense(message: response.message)
                     }
                 }
             } catch {
                 await MainActor.run {
                     licenseCheckInFlight = false
                     licenseValidationPending = false
-                    resetStoredLicense(message: "License check failed. Connect to internet and try again.")
+                    keepStoredLicenseAfterTemporaryCheckFailure()
                 }
             }
         }
     }
 
-    private func prepareUnlockedApp() {
-        BundledPatchSeeder.seedIfNeeded()
-        appState.detectSupport()
+    private func keepStoredLicenseAfterTemporaryCheckFailure() {
+        licenseMessage = ""
+        prepareUnlockedApp()
     }
 
-    private func resetStoredLicense(message: String) {
+    private func lockStoredLicense(message: String) {
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: "greeg.license.key")
-        defaults.removeObject(forKey: "greeg.license.device")
         defaults.set(false, forKey: "greeg.license.supabaseUnlocked")
         LicenseEntitlements.clear()
         licenseMessage = message
         licenseValidationPending = false
         licenseUnlocked = false
+    }
+
+    private func prepareUnlockedApp() {
+        BundledPatchSeeder.seedIfNeeded()
+        appState.detectSupport()
     }
 
     var body: some Scene {
@@ -288,7 +295,7 @@ private struct LicenseCheckingView: View {
 
 
 private struct GreegLicenseView: View {
-    @State private var key = ""
+    @State private var key: String
     @State private var messageText = ""
     @State private var didActivate = false
     @State private var isLoading = false
@@ -296,6 +303,7 @@ private struct GreegLicenseView: View {
     let onSuccess: () -> Void
 
     init(initialMessage: String = "", onSuccess: @escaping () -> Void) {
+        _key = State(initialValue: UserDefaults.standard.string(forKey: "greeg.license.key")?.normalizedLicenseKey ?? "")
         _messageText = State(initialValue: initialMessage)
         self.onSuccess = onSuccess
     }
@@ -450,6 +458,22 @@ enum LicenseEntitlements {
         defaults.removeObject(forKey: expiresAtKey)
     }
 
+    static func storedExpirationDate(defaults: UserDefaults = .standard) -> Date? {
+        guard let value = defaults.string(forKey: expiresAtKey), !value.isEmpty else {
+            return nil
+        }
+
+        return LicenseDateParser.date(from: value)
+    }
+
+    static func isExpiredLocally(now: Date = Date(), defaults: UserDefaults = .standard) -> Bool {
+        guard let expirationDate = storedExpirationDate(defaults: defaults) else {
+            return false
+        }
+
+        return expirationDate <= now
+    }
+
     static func has(_ capability: String, defaults: UserDefaults = .standard) -> Bool {
         guard let data = defaults.data(forKey: capabilitiesKey),
               let capabilities = try? JSONDecoder().decode([String].self, from: data) else {
@@ -479,6 +503,24 @@ private struct SupabaseLicenseResponse: Decodable {
         message = (try? container.decode(String.self, forKey: .message)) ?? "License check failed."
         capabilities = (try? container.decode([String].self, forKey: .capabilities)) ?? []
         expiresAt = try? container.decodeIfPresent(String.self, forKey: .expiresAt)
+    }
+}
+
+private enum LicenseDateParser {
+    private static let fractionalFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let internetFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func date(from value: String) -> Date? {
+        fractionalFormatter.date(from: value) ?? internetFormatter.date(from: value)
     }
 }
 

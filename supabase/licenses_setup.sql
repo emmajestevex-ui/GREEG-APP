@@ -202,6 +202,17 @@ begin
         );
     end if;
 
+    if v_license.status = 'active'
+       and v_license.device_id = v_device
+       and v_license.is_active = true then
+        return json_build_object(
+            'success', true,
+            'message', 'Key verified',
+            'capabilities', coalesce(v_license.capabilities, '[]'::jsonb),
+            'expires_at', v_license.expires_at
+        );
+    end if;
+
     if v_license.status <> 'available'
         or v_license.used_at is not null
         or v_license.device_id is not null
@@ -332,8 +343,12 @@ begin
         raise exception 'Capabilities must be a JSON array';
     end if;
 
-    if v_capabilities ? 'special_assetindexer' and v_custom <> 'TIO-GREEG927394HD' then
-        raise exception 'Special patch access is only allowed for TIO-GREEG927394HD';
+    if exists (
+        select 1
+        from jsonb_array_elements_text(v_capabilities) as capability(value)
+        where capability.value <> 'special_assetindexer'
+    ) then
+        raise exception 'Unsupported license capability';
     end if;
 
     if v_duration is not null and v_duration > 0 then
@@ -481,6 +496,12 @@ begin
     update public.licenses
     set
         status = v_status,
+        expires_at = case
+            when v_status in ('available', 'active')
+             and v_license.expires_at is not null
+             and v_license.expires_at <= now() then null
+            else expires_at
+        end,
         is_active = v_status in ('available', 'active'),
         updated_at = now()
     where id = v_license.id
@@ -548,6 +569,51 @@ begin
 end;
 $$;
 
+create or replace function public.admin_delete_license(
+    p_license_key text
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_key text := public.normalize_license_key(p_license_key);
+    v_status text;
+begin
+    if not public.is_license_admin() then
+        raise exception 'Not authorized';
+    end if;
+
+    if v_key = '' then
+        return json_build_object('success', false, 'message', 'Invalid key');
+    end if;
+
+    select status
+    into v_status
+    from public.licenses
+    where license_key = v_key
+    for update;
+
+    if not found then
+        return json_build_object('success', false, 'message', 'Key not found');
+    end if;
+
+    if v_status not in ('blocked', 'expired') then
+        return json_build_object('success', false, 'message', 'Only blocked or expired keys can be deleted');
+    end if;
+
+    delete from public.licenses
+    where license_key = v_key;
+
+    return json_build_object(
+        'success', true,
+        'message', 'Key deleted',
+        'license_key', v_key
+    );
+end;
+$$;
+
 revoke all on function public.normalize_license_key(text) from public;
 revoke all on function public.generate_secure_license_key(text) from public;
 revoke all on function public.is_license_admin() from public;
@@ -558,6 +624,7 @@ revoke all on function public.admin_generate_licenses(integer, integer, text, js
 revoke all on function public.admin_list_licenses() from public;
 revoke all on function public.admin_set_license_status(text, text) from public;
 revoke all on function public.admin_set_license_expiration(text, timestamptz) from public;
+revoke all on function public.admin_delete_license(text) from public;
 
 grant execute on function public.activate_license(text, text) to anon, authenticated;
 grant execute on function public.check_license(text, text) to anon, authenticated;
@@ -565,3 +632,4 @@ grant execute on function public.admin_generate_licenses(integer, integer, text,
 grant execute on function public.admin_list_licenses() to authenticated;
 grant execute on function public.admin_set_license_status(text, text) to authenticated;
 grant execute on function public.admin_set_license_expiration(text, timestamptz) to authenticated;
+grant execute on function public.admin_delete_license(text) to authenticated;
