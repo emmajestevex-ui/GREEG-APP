@@ -3,7 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://qlfugpumolehqzzuvocn.supabase.co";
 const SUPABASE_KEY = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y";
 const BUCKET = "greeg-content";
-const SCRIPT_VERSION = "20260918-only-esp-ffth";
+const SCRIPT_VERSION = "20260921-greeg-isolated";
 const DEFAULT_TARGET_BUNDLE = "com.dts.freefireth";
 const FREE_FIRE_MAX_BUNDLE = "com.dts.freefiremax";
 const ASSET_INDEXER_DIRECTORY = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar";
@@ -405,7 +405,7 @@ async function loadFiles() {
     return;
   }
 
-  state.files = data ?? [];
+  state.files = (data ?? []).filter(isGreegFile);
   setStatus("Listo. Recuerda publicar para que los iPhone reciban los cambios.");
   renderFiles();
 }
@@ -908,6 +908,12 @@ function isAllowedAdminEmail(email) {
     "emmajestevex@gmail.com",
     "grego23500@gmail.com",
   ].includes(email.trim().toLowerCase());
+}
+
+function isGreegFile(file) {
+  const category = String(file.category || "").toLowerCase();
+  const slug = String(file.slug || "").toLowerCase();
+  return !category.startsWith("glizzy-") && !slug.startsWith("glizzy-");
 }
 
 function fallbackTargetPath(file) {
