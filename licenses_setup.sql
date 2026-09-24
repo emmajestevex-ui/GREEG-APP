@@ -108,7 +108,14 @@ returns text
 language plpgsql
 as $$
 declare
-    v_prefix text := upper(regexp_replace(trim(coalesce(p_prefix, 'GREEG')), '[^A-Z0-9]+', '', 'g'));
+    v_prefix text := upper(
+        regexp_replace(
+            trim(coalesce(p_prefix, 'GREEG')),
+            '[^A-Z0-9]+',
+            '',
+            'g'
+        )
+    );
     v_raw text := encode(extensions.gen_random_bytes(12), 'hex');
 begin
     if v_prefix = '' then
@@ -116,32 +123,15 @@ begin
     end if;
 
     return v_prefix || '-' ||
-        upper(substr(v_raw, 1, 4) || '-' ||
-              substr(v_raw, 5, 4) || '-' ||
-              substr(v_raw, 9, 4) || '-' ||
-              substr(v_raw, 13, 4) || '-' ||
-              substr(v_raw, 17, 4) || '-' ||
-              substr(v_raw, 21, 4));
-end;
-$$;
-
-create or replace function public.is_license_admin()
-returns boolean
-language sql
-security definer
-set search_path = public
-as $$
-    select
-        lower(coalesce(auth.jwt() ->> 'email', '')) in (
-            '2008yashirchavez@gmail.com',
-            'emmajestevex@gmail.com',
-            'grego23500@gmail.com'
-        )
-        or exists (
-            select 1
-            from public.license_admins
-            where user_id = auth.uid()
+        upper(
+            substr(v_raw, 1, 4) || '-' ||
+            substr(v_raw, 5, 4) || '-' ||
+            substr(v_raw, 9, 4) || '-' ||
+            substr(v_raw, 13, 4) || '-' ||
+            substr(v_raw, 17, 4) || '-' ||
+            substr(v_raw, 21, 4)
         );
+end;
 $$;
 
 insert into public.license_admins (user_id, role)
