@@ -123,90 +123,13 @@ enum BundledPatchSeeder {
     private static let assetIndexerDirectory = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
     private static let bundledPackages: [BundledPackageSpec] = []
 
-    private static let projects = [
-        ProjectSpec(
-            id: assetIndexerProjectID,
-            defaultName: "Asset Indexer",
-            legacyDefaultNames: ["asse"],
-            bundleID: "com.dts.freefiremax",
-            payloads: [
-                PayloadSpec(
-                    directory: assetIndexerDirectory,
-                    filenameCandidates: [
-                        AssetIndexerVariant.pen.filename,
-                        AssetIndexerVariant.h5.filename
-                    ],
-                    remoteSlugs: ["asset-indexer-ff-max"]
-                ),
-            ]
-        ),
-        ProjectSpec(
-            id: UUID(uuidString: "A55E0003-3105-4A55-9001-00000000BEEF")!,
-            defaultName: "Shaders",
-            legacyDefaultNames: [],
-            payloads: [
-                PayloadSpec(
-                    directory: "Documents/contentcache/Optional/ios/gameassetbundles",
-                    filenameCandidates: [
-                        "shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D",
-                        "shaders.HPt9DZviTSXL9hpGW9QNOMig-NLA~3D"
-                    ],
-                    remoteSlugs: ["shaders"]
-                )
-            ]
-        ),
-        ProjectSpec(
-            id: UUID(uuidString: "A55E0002-0144-4A55-9001-00000000BEEF")!,
-            defaultName: "144 fps",
-            legacyDefaultNames: [],
-            payloads: [
-                PayloadSpec(
-                    directory: "Library/Preferences",
-                    filenameCandidates: [
-                        "com.dts.freefireth.plist"
-                    ],
-                    remoteSlugs: ["144-fps"]
-                )
-            ]
-        ),
-        ProjectSpec(
-            id: UUID(uuidString: "A55E0005-3105-4A55-9001-00000000BEEF")!,
-            defaultName: "Aimbot Drag FF Max",
-            legacyDefaultNames: [],
-            bundleID: "com.dts.freefiremax",
-            payloads: [
-                PayloadSpec(
-                    directory: "Documents",
-                    filenameCandidates: [
-                        "Assembly-CSharp-patch.bytes"
-                    ],
-                    remoteSlugs: ["aimbot-drag-ff-max-assembly"]
-                ),
-                PayloadSpec(
-                    directory: "Documents",
-                    filenameCandidates: [
-                        "localConfig.json"
-                    ],
-                    remoteSlugs: ["aimbot-drag-ff-max-config"]
-                )
-            ]
-        ),
-        ProjectSpec(
-            id: UUID(uuidString: "A55E0004-3105-4A55-9001-00000000BEEF")!,
-            defaultName: "TIO GREEG",
-            legacyDefaultNames: [],
-            requiredCapability: LicenseEntitlements.specialAssetIndexer,
-            payloads: [
-                PayloadSpec(
-                    directory: "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar",
-                    filenameCandidates: [
-                        "assetindexer.tio-greeg927394hd"
-                    ],
-                    targetFilename: "assetindexer.PENojQAQ-f9a1I6Dzjs0n1Z3rtVU~3D",
-                    remoteSlugs: ["tio-greeg"]
-                )
-            ]
-        )
+    private static let projects: [ProjectSpec] = []
+    private static let retiredBundledProjectIDs: Set<UUID> = [
+        UUID(uuidString: "A55E0001-3105-4A55-9001-00000000BEEF")!,
+        UUID(uuidString: "A55E0002-0144-4A55-9001-00000000BEEF")!,
+        UUID(uuidString: "A55E0003-3105-4A55-9001-00000000BEEF")!,
+        UUID(uuidString: "A55E0004-3105-4A55-9001-00000000BEEF")!,
+        UUID(uuidString: "A55E0005-3105-4A55-9001-00000000BEEF")!,
     ]
 
     private static var activeProjects: [ProjectSpec] {
@@ -332,6 +255,7 @@ enum BundledPatchSeeder {
 
     static func seedIfNeeded(fileManager: FileManager = .default) {
         seedBundledPackages(fileManager: fileManager)
+        removeRetiredBundledProjects(fileManager: fileManager)
         removeBuiltInRemoteDuplicates(fileManager: fileManager)
 
         for spec in activeProjects {
@@ -347,6 +271,18 @@ enum BundledPatchSeeder {
             }
         }
         seedRemoteProjects(fileManager: fileManager)
+    }
+
+    private static func removeRetiredBundledProjects(fileManager: FileManager) {
+        for item in PatchProjectLibrary.load(fileManager: fileManager)
+            where retiredBundledProjectIDs.contains(item.id) {
+            do {
+                try PatchProjectLibrary.deleteRetiredBundledPackage(item, fileManager: fileManager)
+                log("patch: retired bundled project removed \(item.id.uuidString)")
+            } catch {
+                log("patch: retired bundled project \(item.id.uuidString) could not be removed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private static func seedBundledPackages(fileManager: FileManager) {

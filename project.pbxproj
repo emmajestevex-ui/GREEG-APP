@@ -58,7 +58,6 @@
 		3105F205 /* WallpaperLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105F106; };
 		3105F206 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105F108; };
 		3105K200 /* BundledPatchSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105K100; };
-		3105K201 /* BundledPatchPayloads in Resources */ = {isa = PBXBuildFile; fileRef = 3105K101; };
 		3105G200 /* ZIPArchiveWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G100; };
 		3105G201 /* FileOperationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G101; };
 		3105G202 /* ZIPArchiveExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G102; };
@@ -357,7 +356,6 @@
 			files = (
 				3105A211,
 				3105A228,
-				3105K201,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -358,14 +358,24 @@ private struct GreegPatchLibraryView: View {
     }
 
     private static func shouldShow(_ project: PatchProject) -> Bool {
-        !project.rules.isEmpty || !project.directories.isEmpty
+        isGreegManaged(project)
+            && (!project.rules.isEmpty || !project.directories.isEmpty)
     }
 
     private static func discardReason(for project: PatchProject) -> String? {
+        if !isGreegManaged(project) {
+            return "sin-metadatos-greeg"
+        }
         if project.rules.isEmpty && project.directories.isEmpty {
             return "sin-reglas-o-rutas"
         }
         return nil
+    }
+
+    private static func isGreegManaged(_ project: PatchProject) -> Bool {
+        let author = project.author.lowercased()
+        return author.contains("[greeg_category:")
+            || author.contains("[greeg_style:")
     }
 
     private func logVisiblePatchAudit(items: [PatchLibraryItem]) {
@@ -479,7 +489,7 @@ private struct GreegPatchKind: Hashable, Identifiable {
     }
 
     private static func sectionTitle(for category: String?) -> String {
-        guard let category, !category.isEmpty else { return "ARCHIVOS" }
+        guard let category, !category.isEmpty else { return "REMOTOS" }
         return category
             .replacingOccurrences(of: "-", with: " ")
             .replacingOccurrences(of: "_", with: " ")

@@ -307,6 +307,26 @@ enum PatchProjectLibrary {
         }
     }
 
+    static func deleteRetiredBundledPackage(_ item: PatchLibraryItem, fileManager: FileManager = .default) throws {
+        if fileManager.fileExists(atPath: item.packageURL.path) {
+            try fileManager.removeItem(at: item.packageURL)
+        }
+        try? PatchWorkspaceService.deleteWorkspace(projectID: item.id, fileManager: fileManager)
+        try? PatchKeyStore.delete(for: item.summary)
+        if let originURL = try? originFileURL(
+            packageID: item.id,
+            fileManager: fileManager
+        ), fileManager.fileExists(atPath: originURL.path) {
+            try? fileManager.removeItem(at: originURL)
+        }
+        if let marker = try? authorCopyMarkerURL(
+            packageID: item.id,
+            fileManager: fileManager
+        ), fileManager.fileExists(atPath: marker.path) {
+            try? fileManager.removeItem(at: marker)
+        }
+    }
+
     static func synchronizeWorkspace(
         item: PatchLibraryItem,
         fileManager: FileManager = .default
