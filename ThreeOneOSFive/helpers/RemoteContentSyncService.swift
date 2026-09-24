@@ -456,9 +456,18 @@ final class RemoteContentStore: ObservableObject {
 
     private func makePlan(remote: RemoteContentManifest, local: RemoteContentManifest?) throws -> SyncPlan {
         let remoteFiles = remote.files.filter(\.isAvailable)
-        let localFiles = (local?.files ?? []).filter(\.isAvailable)
+
+        // Keep every entry from the previous manifest so files that were
+        // later disabled/deleted can still be found and removed locally.
+        let localFiles = local?.files ?? []
         let localByID = Dictionary(uniqueKeysWithValues: localFiles.map { ($0.id, $0) })
         let remoteIDs = Set(remoteFiles.map(\.id))
+        let explicitlyDeletedIDs = Set(
+            remote.files
+                .filter { !$0.isAvailable }
+                .map(\.id)
+        )
+
         var changed: [RemoteContentFile] = []
 
         for file in remoteFiles {
@@ -470,6 +479,7 @@ final class RemoteContentStore: ObservableObject {
                 || installed?.cacheRelativePath != file.cacheRelativePath
             let missing = !FileManager.default.fileExists(atPath: targetURL.path)
             let digestChanged: Bool
+
             if !missing && !metadataChanged {
                 digestChanged = ((try? sha256Hex(for: targetURL)) ?? "") != file.sha256
             } else {
@@ -481,7 +491,20 @@ final class RemoteContentStore: ObservableObject {
             }
         }
 
-        let obsolete = localFiles.filter { !remoteIDs.contains($0.id) }
+        let obsolete = localFiles.filter { file in
+            !remoteIDs.contains(file.id) || explicitlyDeletedIDs.contains(file.id)
+        }
+
+        log(
+            "plan sync: remotos=\(remoteFiles.count), cambiados=\(changed.count), eliminar=\(obsolete.count)"
+        )
+
+        for file in obsolete {
+            log(
+                "marcado para eliminar: \(file.name); id=\(file.id); path=\(file.cacheRelativePath)"
+            )
+        }
+
         return SyncPlan(changed: changed, obsolete: obsolete)
     }
 
@@ -526,20 +549,61 @@ final class RemoteContentStore: ObservableObject {
 
         for file in manifest.files where file.isAvailable {
             guard let stagedURL = stagedDownloads[file.id] else { continue }
+
             let destinationURL = localURL(for: file)
-            try fileManager.createDirectory(at: destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? fileManager.removeItem(at: destinationURL)
+            try fileManager.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                do {
+                    try fileManager.removeItem(at: destinationURL)
+                    log("archivo anterior eliminado antes de reemplazar: \(file.name)")
+                } catch {
+                    log("ERROR eliminando versión anterior de \(file.name): \(error.localizedDescription)")
+                    throw error
+                }
+            }
+
             try fileManager.moveItem(at: stagedURL, to: destinationURL)
+            log("INSTALADO: \(file.name) -> \(destinationURL.path)")
 
             if let previous = previousByID[file.id],
                previous.cacheRelativePath != file.cacheRelativePath {
-                try? fileManager.removeItem(at: localURL(for: previous))
+                let oldURL = localURL(for: previous)
+
+                if fileManager.fileExists(atPath: oldURL.path) {
+                    do {
+                        try fileManager.removeItem(at: oldURL)
+                        log("RUTA ANTIGUA ELIMINADA: \(previous.name) -> \(oldURL.path)")
+                    } catch {
+                        log("ERROR ELIMINANDO RUTA ANTIGUA \(previous.name): \(error.localizedDescription)")
+                        throw error
+                    }
+                }
             }
         }
 
         for file in obsoleteFiles {
-            try? fileManager.removeItem(at: localURL(for: file))
+            let obsoleteURL = localURL(for: file)
+
+            if fileManager.fileExists(atPath: obsoleteURL.path) {
+                do {
+                    try fileManager.removeItem(at: obsoleteURL)
+                    log("ELIMINADO DEFINITIVAMENTE: \(file.name) -> \(obsoleteURL.path)")
+                } catch {
+                    log("ERROR ELIMINANDO \(file.name): \(error.localizedDescription)")
+                    throw error
+                }
+            } else {
+                log("ARCHIVO OBSOLETO YA NO EXISTÍA: \(file.name) -> \(obsoleteURL.path)")
+            }
         }
+
+        log(
+            "instalación terminada: \(stagedDownloads.count) descargados, \(obsoleteFiles.count) procesados para eliminación"
+        )
     }
 
     private func loadLocalManifest() throws -> RemoteContentManifest {
