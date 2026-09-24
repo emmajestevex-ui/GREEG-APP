@@ -109,7 +109,7 @@ language plpgsql
 as $$
 declare
     v_prefix text := upper(regexp_replace(trim(coalesce(p_prefix, 'GREEG')), '[^A-Z0-9]+', '', 'g'));
-    v_raw text := encode(gen_random_bytes(12), 'hex');
+    v_raw text := encode(extensions.gen_random_bytes(12), 'hex');
 begin
     if v_prefix = '' then
         v_prefix := 'GREEG';
