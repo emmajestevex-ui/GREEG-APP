@@ -140,9 +140,9 @@ private struct GreegHomeView: View {
 
                 Divider().overlay(Color.white.opacity(0.08))
 
-                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo")
-                HomePatchRow(icon: "shippingbox.fill", title: "Drag + ANTENA", subtitle: "Listo")
-                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual")
+                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo", tint: GreegPatchKind.antena.tint)
+                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual", tint: GreegPatchKind.holo.tint)
+                HomePatchRow(icon: "scope", title: "Aimbots", subtitle: "Normales", tint: GreegPatchKind.aimbotNormal.tint)
             }
         }
     }
@@ -405,7 +405,7 @@ private enum GreegPatchKind: String, CaseIterable, Identifiable {
         switch self {
         case .antena: return "ANTENA"
         case .holo: return "HOLO"
-        case .aimbotNormal: return "AIMBOT NORMAL"
+        case .aimbotNormal: return "AIMBOTS"
         }
     }
 
@@ -787,10 +787,11 @@ private struct HomePatchRow: View {
     let icon: String
     let title: String
     let subtitle: String
+    let tint: Color
 
     var body: some View {
         HStack(spacing: 14) {
-            AppRowIcon(systemName: icon, tint: AppTheme.accent, symbolSize: 14, frameSize: 32)
+            AppRowIcon(systemName: icon, tint: tint, symbolSize: 14, frameSize: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.bold))
