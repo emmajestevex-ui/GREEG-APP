@@ -1,11 +1,15 @@
 import SwiftUI
 
 enum AppTheme {
-    static let accent = Color(red: 0.95, green: 0.08, blue: 0.10)
-    static let accentGlow = Color(red: 1.00, green: 0.16, blue: 0.18)
-    static let pageBackground = Color.black
-    static let consoleBackground = Color(red: 0.055, green: 0.055, blue: 0.065)
-    static let cardBackground = Color(red: 0.095, green: 0.095, blue: 0.11)
+    static let accent = Color(
+        uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 1.00, green: 0.08, blue: 0.10, alpha: 1.00)
+                : UIColor(red: 0.88, green: 0.02, blue: 0.08, alpha: 1.00)
+        }
+    )
+    static let pageBackground = Color(uiColor: .systemBackground)
+    static let consoleBackground = Color(uiColor: .secondarySystemBackground)
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
     static let rowIconFrame: CGFloat = 28
@@ -15,6 +19,23 @@ enum AppTheme {
     static let appIconSize: CGFloat = 32
     static let emptyIconSize: CGFloat = 30
     static let selectionIconSize: CGFloat = 18
+    static let contentCardCornerRadius: CGFloat = 20
+    static let contentCardInset: CGFloat = 16
+    static let contentCardPadding: CGFloat = 16
+}
+
+struct AppCardBorder: View {
+    var body: some View {
+        RoundedRectangle(
+            cornerRadius: AppTheme.contentCardCornerRadius,
+            style: .continuous
+        )
+        .strokeBorder(
+            Color(uiColor: .separator).opacity(0.22),
+            lineWidth: 0.5
+        )
+        .accessibilityHidden(true)
+    }
 }
 
 struct AppRowIcon: View {
@@ -83,12 +104,14 @@ struct AppLogo: View {
 
     var body: some View {
         Group {
-            if let logo = UIImage(named: "GreegLogo") {
-                Image(uiImage: logo)
+            if let icon = UIImage(named: "AppIcon60x60")
+                ?? Bundle.main.path(forResource: "AppIcon60x60@2x", ofType: "png").flatMap(UIImage.init(contentsOfFile:))
+                ?? UIImage(named: "AppIcon") {
+                Image(uiImage: icon)
                     .resizable()
                     .scaledToFill()
             } else {
-                Image(systemName: "crown.fill")
+                Image(systemName: "slider.horizontal.3")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

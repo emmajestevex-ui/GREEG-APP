@@ -122,16 +122,7 @@ enum BundledPatchSeeder {
     private static let remoteAssetIndexerVariantPrefix = "greeg.remoteAssetIndexerVariant."
     private static let remoteTargetBundlePrefix = "greeg.remoteTargetBundle."
     private static let assetIndexerDirectory = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar"
-    private static let onlyEspPackageID = UUID(uuidString: "F48A4F55-B529-4D0D-BE41-72988D6DA756")!
-
-    private static let bundledPackages = [
-        BundledPackageSpec(
-            id: onlyEspPackageID,
-            resourceName: "Only Esp FFTH",
-            resourceExtension: "3105",
-            sortRank: 35
-        )
-    ]
+    private static let bundledPackages: [BundledPackageSpec] = []
 
     private static let projects = [
         ProjectSpec(

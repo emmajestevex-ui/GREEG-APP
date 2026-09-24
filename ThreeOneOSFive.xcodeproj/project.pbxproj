@@ -61,6 +61,13 @@
 		3105K201 /* BundledPatchPayloads in Resources */ = {isa = PBXBuildFile; fileRef = 3105K101; };
 		3105L200 /* RemoteContentSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105L100; };
 		3105L201 /* RemoteContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105L101; };
+		3105M200 /* FileBrowserMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M100; };
+		3105M201 /* PackageRepositoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M101; };
+		3105M202 /* PackageRepositoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M102; };
+		3105M203 /* RepositoryPresentationSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M103; };
+		3105M204 /* RepositoryHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M104; };
+		3105M205 /* RepositoryMarketplaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M105; };
+		3105M206 /* RepositorySourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105M106; };
 		3105G200 /* ZIPArchiveWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G100; };
 		3105G201 /* FileOperationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G101; };
 		3105G202 /* ZIPArchiveExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105G102; };
@@ -155,6 +162,13 @@
 		3105K101 /* BundledPatchPayloads */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BundledPatchPayloads; sourceTree = "<group>"; };
 		3105L100 /* RemoteContentSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteContentSyncService.swift; sourceTree = "<group>"; };
 		3105L101 /* RemoteContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteContentView.swift; sourceTree = "<group>"; };
+		3105M100 /* FileBrowserMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserMetadata.swift; sourceTree = "<group>"; };
+		3105M101 /* PackageRepositoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageRepositoryModels.swift; sourceTree = "<group>"; };
+		3105M102 /* PackageRepositoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageRepositoryStore.swift; sourceTree = "<group>"; };
+		3105M103 /* RepositoryPresentationSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryPresentationSupport.swift; sourceTree = "<group>"; };
+		3105M104 /* RepositoryHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryHomeView.swift; sourceTree = "<group>"; };
+		3105M105 /* RepositoryMarketplaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryMarketplaceView.swift; sourceTree = "<group>"; };
+		3105M106 /* RepositorySourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositorySourcesView.swift; sourceTree = "<group>"; };
 		3105A121 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3105A122 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3105B123 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -235,6 +249,9 @@
 				3105F106 /* WallpaperLabView.swift */,
 				3105F108 /* OnboardingView.swift */,
 				3105L101 /* RemoteContentView.swift */,
+				3105M104 /* RepositoryHomeView.swift */,
+				3105M105 /* RepositoryMarketplaceView.swift */,
+				3105M106 /* RepositorySourcesView.swift */,
 			);
 			path = views;
 			sourceTree = "<group>";
@@ -248,6 +265,7 @@
 				3105A109 /* ContainerBrowserLogic.swift */,
 				3105A110 /* FileReplacementService.swift */,
 				3105A111 /* FileManagerService.swift */,
+				3105M100 /* FileBrowserMetadata.swift */,
 				3105G100 /* ZIPArchiveWriter.swift */,
 				3105G102 /* ZIPArchiveExtractor.swift */,
 				3105G101 /* FileOperationCoordinator.swift */,
@@ -262,6 +280,9 @@
 				3105G103 /* PatchWorkspaceService.swift */,
 				3105K100 /* BundledPatchSeeder.swift */,
 				3105L100 /* RemoteContentSyncService.swift */,
+				3105M101 /* PackageRepositoryModels.swift */,
+				3105M102 /* PackageRepositoryStore.swift */,
+				3105M103 /* RepositoryPresentationSupport.swift */,
 				3105H100 /* AppTabNavigationState.swift */,
 				3105C100 /* PatchDraftService.swift */,
 				3105C101 /* PatchDraftCoordinator.swift */,
@@ -418,6 +439,13 @@
 				3105K200,
 				3105L200,
 				3105L201,
+				3105M200,
+				3105M201,
+				3105M202,
+				3105M203,
+				3105M204,
+				3105M205,
+				3105M206,
 				3105G200,
 				3105G201,
 				3105G202,

@@ -9,6 +9,8 @@ struct ThreeOneOSFiveApp: App {
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @StateObject private var remoteContentStore = RemoteContentStore()
+    @StateObject private var patchStore = PatchProjectStore()
+    @StateObject private var repositoryStore = PackageRepositoryStore()
     @State private var showOnboarding = false
     @AppStorage("greeg.license.supabaseUnlocked") private var licenseUnlocked = false
     @State private var licenseMessage = ""
@@ -111,8 +113,12 @@ struct ThreeOneOSFiveApp: App {
                         .environmentObject(patchDraftCoordinator)
                         .environmentObject(fileOperationCoordinator)
                         .environmentObject(remoteContentStore)
+                        .environmentObject(patchStore)
+                        .environmentObject(repositoryStore)
                         .environment(\.appLanguage, language)
                         .environment(\.locale, language.locale)
+                        .patchStorePresentation(patchStore)
+                        .repositoryStorePresentation(repositoryStore, patchStore: patchStore)
                         .opacity(showOnboarding ? 0 : 1)
                         .allowsHitTesting(!showOnboarding)
 
