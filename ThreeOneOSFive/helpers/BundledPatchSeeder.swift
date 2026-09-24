@@ -641,6 +641,7 @@ enum BundledPatchSeeder {
         return PatchProject(
             id: projectID,
             name: projectName,
+            author: remoteStyleMarker(for: file),
             createdAt: existingProject?.createdAt ?? seedDate,
             updatedAt: Date(),
             bundleIdentifiers: [effectiveBundleID],
@@ -685,6 +686,21 @@ enum BundledPatchSeeder {
 
     private static func remoteProjectID(for file: RemoteContentFile) -> UUID? {
         UUID(uuidString: file.id)
+    }
+
+    private static func remoteStyleMarker(for file: RemoteContentFile) -> String {
+        guard let description = file.description else { return "" }
+        let lowercased = description.lowercased()
+        if lowercased.contains("[greeg_style:antena]") {
+            return "[GREEG_STYLE:antena]"
+        }
+        if lowercased.contains("[greeg_style:holo]") {
+            return "[GREEG_STYLE:holo]"
+        }
+        if lowercased.contains("[greeg_style:aimbot-normal]") {
+            return "[GREEG_STYLE:aimbot-normal]"
+        }
+        return ""
     }
 
     private static func isRemotePatchPackage(_ file: RemoteContentFile) -> Bool {

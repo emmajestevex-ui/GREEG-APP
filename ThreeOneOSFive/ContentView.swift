@@ -247,7 +247,7 @@ private struct GreegPatchLibraryView: View {
 
     private var groupedItems: [GreegPatchSection] {
         GreegPatchKind.allCases.compactMap { kind in
-            let items = visibleItems.filter { kind == GreegPatchKind(name: $0.project?.name ?? "") }
+            let items = visibleItems.filter { kind == GreegPatchKind(project: $0.project) }
             return items.isEmpty ? nil : GreegPatchSection(kind: kind, items: items)
         }
     }
@@ -370,6 +370,24 @@ private enum GreegPatchKind: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    init(project: PatchProject?) {
+        if let author = project?.author.lowercased() {
+            if author.contains("[greeg_style:antena]") {
+                self = .antena
+                return
+            }
+            if author.contains("[greeg_style:holo]") {
+                self = .holo
+                return
+            }
+            if author.contains("[greeg_style:aimbot-normal]") {
+                self = .aimbotNormal
+                return
+            }
+        }
+        self.init(name: project?.name ?? "")
+    }
+
     init(name: String) {
         let normalized = name
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
@@ -419,7 +437,7 @@ private struct GreegPatchRow: View {
 
     private var project: PatchProject? { item.project }
     private var isApplied: Bool { DevicePatchService.latestReceipt(projectID: item.id) != nil }
-    private var kind: GreegPatchKind { GreegPatchKind(name: project?.name ?? "") }
+    private var kind: GreegPatchKind { GreegPatchKind(project: project) }
 
     var body: some View {
         GreegPanel {
@@ -485,7 +503,7 @@ private struct GreegPatchDetailView: View {
     }
 
     private var kind: GreegPatchKind {
-        GreegPatchKind(name: project?.name ?? "")
+        GreegPatchKind(project: project)
     }
 
     var body: some View {

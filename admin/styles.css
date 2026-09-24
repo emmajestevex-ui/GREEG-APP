@@ -425,6 +425,32 @@ textarea:focus {
   color: var(--muted);
 }
 
+.styleBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.styleAntena {
+  color: #ff4d57;
+  background: rgba(240, 24, 33, 0.14);
+}
+
+.styleHolo {
+  color: #43e06b;
+  background: rgba(67, 224, 107, 0.14);
+}
+
+.styleAimbot {
+  color: #ffd45a;
+  background: rgba(255, 212, 90, 0.16);
+}
+
 .fileActions {
   gap: 8px;
   flex-wrap: wrap;

@@ -19,6 +19,22 @@ const ASSET_VARIANTS = {
     targetPath: `${ASSET_INDEXER_DIRECTORY}/assetindexer.U6Zffc4YIR3DslNj3cXvYGAqz58~3D`,
   },
 };
+const STYLE_MARKER_PREFIX = "[GREEG_STYLE:";
+const STYLE_MARKER_PATTERN = /\s*\[GREEG_STYLE:(antena|holo|aimbot-normal)\]\s*/i;
+const PATCH_STYLES = {
+  antena: {
+    label: "ANTENA",
+    className: "styleAntena",
+  },
+  holo: {
+    label: "HOLO",
+    className: "styleHolo",
+  },
+  "aimbot-normal": {
+    label: "AIMBOT NORMAL",
+    className: "styleAimbot",
+  },
+};
 
 const PATCH_PRESETS = [
   {
@@ -179,6 +195,7 @@ const els = {
   nameInput: $("#nameInput"),
   slugInput: $("#slugInput"),
   categoryInput: $("#categoryInput"),
+  styleInput: $("#styleInput"),
   targetBundleInput: $("#targetBundleInput"),
   assetVariantLabel: $("#assetVariantLabel"),
   assetVariantInput: $("#assetVariantInput"),
@@ -467,7 +484,7 @@ async function saveFile(event) {
       p_category: els.categoryInput.value || "files",
       p_target_bundle: targetBundle,
       p_target_path: targetPath,
-      p_description: els.descriptionInput.value.trim() || null,
+      p_description: withStyleMarker(els.descriptionInput.value, els.styleInput.value),
       p_file_name: file.name,
       p_mime_type: file.type || "application/octet-stream",
       p_byte_size: file.size,
@@ -589,11 +606,12 @@ function editFile(file) {
   els.slugInput.value = file.slug;
   els.slugInput.dataset.touched = "true";
   els.categoryInput.value = file.category || "files";
+  els.styleInput.value = styleFromDescription(file.description);
   els.targetBundleInput.value = safeTargetBundle(file.target_bundle);
   els.targetPathInput.value = file.target_path || fallbackTargetPath(file);
   els.targetPathInput.dataset.touched = "true";
   updateAssetVariantVisibility();
-  els.descriptionInput.value = file.description || "";
+  els.descriptionInput.value = cleanDescription(file.description);
   els.fileInput.value = "";
   els.saveButton.textContent = "Reemplazar archivo";
   els.nameInput.focus();
@@ -606,6 +624,7 @@ function resetForm() {
   delete els.slugInput.dataset.touched;
   delete els.targetPathInput.dataset.touched;
   els.categoryInput.value = "files";
+  els.styleInput.value = "antena";
   els.targetBundleInput.value = DEFAULT_TARGET_BUNDLE;
   els.targetPathInput.value = "";
   updateAssetVariantVisibility();
@@ -623,6 +642,7 @@ function applyPreset(preset, selectedRule = null) {
   els.slugInput.value = rule.slug;
   els.slugInput.dataset.touched = "true";
   els.categoryInput.value = rule.category || preset.category || "patches";
+  els.styleInput.value = styleForName(preset.name);
   els.targetBundleInput.value = ruleTargetBundle(preset, rule);
   els.targetPathInput.value = safeRelativePath(rule.targetPath);
   els.targetPathInput.dataset.touched = "true";
@@ -630,7 +650,7 @@ function applyPreset(preset, selectedRule = null) {
     els.assetVariantInput.value = rule.assetVariant;
   }
   updateAssetVariantVisibility();
-  els.descriptionInput.value = rule.description || preset.description || "";
+  els.descriptionInput.value = cleanDescription(rule.description || preset.description || "");
   els.fileInput.value = "";
   els.saveButton.textContent = "Crear patch nuevo";
   els.fileInput.focus();
@@ -769,6 +789,10 @@ function renderFiles() {
     ].join(" / ");
     node.querySelector(".filePath").textContent = `Ruta: ${file.target_path || fallbackTargetPath(file)}`;
     node.querySelector(".fileHash").textContent = file.sha256;
+    const style = styleFromDescription(file.description, file.name);
+    const styleBadge = node.querySelector(".styleBadge");
+    styleBadge.textContent = PATCH_STYLES[style].label;
+    styleBadge.classList.add(PATCH_STYLES[style].className);
 
     const badge = node.querySelector(".badge");
     badge.textContent = badgeLabel(file);
@@ -819,6 +843,33 @@ function assetVariantKeyForPath(value) {
   if (target.includes("assetindexer.u6zff")) return "h5";
   if (target.includes("assetindexer.h5ak1jm1eck")) return "h5";
   return null;
+}
+
+function styleFromDescription(description = "", name = "") {
+  const match = String(description || "").match(STYLE_MARKER_PATTERN);
+  if (match && PATCH_STYLES[match[1]]) return match[1];
+  return styleForName(name);
+}
+
+function styleForName(name = "") {
+  const normalized = String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (normalized.includes("holo")) return "holo";
+  if (normalized.includes("antena")) return "antena";
+  return "aimbot-normal";
+}
+
+function cleanDescription(description = "") {
+  return String(description || "").replace(STYLE_MARKER_PATTERN, "").trim();
+}
+
+function withStyleMarker(description = "", style = "antena") {
+  const clean = cleanDescription(description);
+  const safeStyle = PATCH_STYLES[style] ? style : "antena";
+  const marker = `${STYLE_MARKER_PREFIX}${safeStyle}]`;
+  return clean ? `${clean} ${marker}` : marker;
 }
 
 function safeTargetBundle(value) {
