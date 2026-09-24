@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <title>GREEG APP Admin</title>
-    <link rel="stylesheet" href="./styles.css?v=20260918-only-esp-ffth" />
+    <link rel="stylesheet" href="./styles.css?v=20260924-delete-keys" />
   </head>
   <body>
     <main class="shell">
@@ -142,6 +142,34 @@
           </div>
 
           <div id="fileList" class="fileList"></div>
+
+          <div id="archivedBlock" class="archiveBlock hidden">
+            <div class="sectionHeader">
+              <h3>Archivados/Inactivos</h3>
+              <span id="archivedCounter" class="counter">0 archivos</span>
+            </div>
+            <p class="muted archiveHint">Estos registros no forman parte del manifest vigente que recibe la app.</p>
+            <div id="archivedFileList" class="fileList"></div>
+          </div>
+        </section>
+
+        <section class="panel fullWidth">
+          <div class="panelHeader">
+            <div>
+              <h2>Keys</h2>
+              <p id="keysStatusText" class="muted">Cargando licencias...</p>
+            </div>
+            <div class="actions">
+              <button id="refreshKeysButton" class="ghost" type="button">Actualizar keys</button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <input id="keySearchInput" type="search" placeholder="Buscar key, dispositivo o IP..." />
+            <span id="keyCounter" class="counter">0 keys</span>
+          </div>
+
+          <div id="keyList" class="fileList"></div>
         </section>
       </section>
     </main>
@@ -169,6 +197,26 @@
       </article>
     </template>
 
-    <script type="module" src="./app.js?v=20260923-aimbots-category"></script>
+    <template id="keyTemplate">
+      <article class="fileCard keyCard">
+        <div class="fileMain">
+          <div class="fileIcon">KEY</div>
+          <div>
+            <h3></h3>
+            <p class="fileMeta"></p>
+            <p class="filePath"></p>
+            <p class="fileHash"></p>
+          </div>
+        </div>
+        <div class="fileSide">
+          <span class="badge"></span>
+          <div class="fileActions">
+            <button class="resetDeviceButton" type="button">Liberar dispositivo</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="./app.js?v=20260924-delete-keys"></script>
   </body>
 </html>

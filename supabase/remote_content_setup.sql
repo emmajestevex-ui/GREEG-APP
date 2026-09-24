@@ -267,6 +267,7 @@ returns table (
     sha256 text,
     is_active boolean,
     sync_state text,
+    manifest_included boolean,
     deleted_at timestamptz,
     published_at timestamptz,
     created_at timestamptz,
@@ -303,13 +304,12 @@ begin
             when f.updated_at > f.published_at then 'change_pending'
             else 'published'
         end as sync_state,
+        (f.is_active = true and f.deleted_at is null) as manifest_included,
         f.deleted_at,
         f.published_at,
         f.created_at,
         f.updated_at
     from public.remote_content_files f
-    where f.deleted_at is null
-       or f.updated_at > coalesce(f.published_at, 'epoch'::timestamptz)
     order by f.updated_at desc, f.name asc;
 end;
 $$;
@@ -383,6 +383,10 @@ begin
         where id = p_id
         limit 1
         for update;
+
+        if not found then
+            raise exception 'Selected file was not found';
+        end if;
     elsif not coalesce(p_force_new, false) then
         select *
         into v_file
@@ -687,7 +691,9 @@ begin
         '[]'::jsonb
     )
     into v_files
-    from public.remote_content_files f;
+    from public.remote_content_files f
+    where f.is_active = true
+      and f.deleted_at is null;
 
     v_manifest := jsonb_build_object(
         'success', true,
@@ -720,9 +726,14 @@ begin
 end;
 $$;
 
+drop function if exists public.get_remote_content_manifest(text, text);
+
 create or replace function public.get_remote_content_manifest(
     p_license_key text,
-    p_device_id text
+    p_device_id text,
+    p_device_model text default null,
+    p_ios_version text default null,
+    p_app_version text default null
 )
 returns jsonb
 language plpgsql
@@ -733,7 +744,13 @@ declare
     v_license jsonb;
     v_manifest jsonb;
 begin
-    v_license := public.check_license(p_license_key, p_device_id)::jsonb;
+    v_license := public.check_license(
+        p_license_key,
+        p_device_id,
+        p_device_model,
+        p_ios_version,
+        p_app_version
+    )::jsonb;
 
     if coalesce((v_license->>'success')::boolean, false) = false then
         return jsonb_build_object(
@@ -774,7 +791,7 @@ revoke all on function public.admin_set_remote_content_active(uuid, boolean) fro
 revoke all on function public.admin_delete_remote_content_file(uuid) from public;
 revoke all on function public.admin_disable_remote_content_target(text, text, text, text, text, text) from public;
 revoke all on function public.admin_publish_remote_content() from public;
-revoke all on function public.get_remote_content_manifest(text, text) from public;
+revoke all on function public.get_remote_content_manifest(text, text, text, text, text) from public;
 
 grant execute on function public.admin_list_remote_content_files() to authenticated;
 grant execute on function public.is_license_admin() to authenticated;
@@ -783,4 +800,4 @@ grant execute on function public.admin_set_remote_content_active(uuid, boolean) 
 grant execute on function public.admin_delete_remote_content_file(uuid) to authenticated;
 grant execute on function public.admin_disable_remote_content_target(text, text, text, text, text, text) to authenticated;
 grant execute on function public.admin_publish_remote_content() to authenticated;
-grant execute on function public.get_remote_content_manifest(text, text) to anon, authenticated;
+grant execute on function public.get_remote_content_manifest(text, text, text, text, text) to anon, authenticated;

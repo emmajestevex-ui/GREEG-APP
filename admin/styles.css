@@ -124,6 +124,10 @@ h3 {
   align-items: start;
 }
 
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -350,6 +354,25 @@ textarea:focus {
   gap: 10px;
 }
 
+.archiveBlock {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.archiveHint {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
 .fileCard {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -459,6 +482,15 @@ textarea:focus {
 
 .deleteButton {
   color: #ff9ba0 !important;
+}
+
+.resetDeviceButton {
+  color: #ffd45a !important;
+}
+
+.keyCard .fileIcon {
+  background: rgba(245, 184, 75, 0.14);
+  color: var(--warning);
 }
 
 @media (max-width: 820px) {

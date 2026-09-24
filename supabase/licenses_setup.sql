@@ -21,6 +21,12 @@ alter table public.licenses
     add column if not exists capabilities jsonb not null default '[]'::jsonb,
     add column if not exists expires_at timestamptz,
     add column if not exists created_by uuid references auth.users(id) on delete set null,
+    add column if not exists device_model text,
+    add column if not exists ios_version text,
+    add column if not exists app_version text,
+    add column if not exists activation_ip text,
+    add column if not exists last_ip text,
+    add column if not exists last_checked_at timestamptz,
     add column if not exists updated_at timestamptz not null default now();
 
 do $$
@@ -168,9 +174,44 @@ as $$
     end;
 $$;
 
+create or replace function public.request_ip()
+returns text
+language plpgsql
+stable
+as $$
+declare
+    v_headers jsonb;
+    v_forwarded text;
+    v_real_ip text;
+begin
+    begin
+        v_headers := nullif(current_setting('request.headers', true), '')::jsonb;
+    exception when others then
+        v_headers := null;
+    end;
+
+    v_forwarded := nullif(trim(coalesce(v_headers ->> 'x-forwarded-for', '')), '');
+    if v_forwarded is not null then
+        return trim(split_part(v_forwarded, ',', 1));
+    end if;
+
+    v_real_ip := nullif(trim(coalesce(v_headers ->> 'x-real-ip', '')), '');
+    if v_real_ip is not null then
+        return v_real_ip;
+    end if;
+
+    return null;
+end;
+$$;
+
+drop function if exists public.activate_license(text, text);
+
 create or replace function public.activate_license(
     p_license_key text,
-    p_device_id text
+    p_device_id text,
+    p_device_model text default null,
+    p_ios_version text default null,
+    p_app_version text default null
 )
 returns json
 language plpgsql
@@ -181,6 +222,7 @@ declare
     v_license public.licenses%rowtype;
     v_key text;
     v_device text := trim(coalesce(p_device_id, ''));
+    v_ip text := public.request_ip();
 begin
     v_key := public.normalize_license_key(p_license_key);
 
@@ -222,6 +264,18 @@ begin
     if v_license.status = 'active'
        and v_license.device_id = v_device
        and v_license.is_active = true then
+        update public.licenses
+        set
+            device_model = coalesce(nullif(trim(coalesce(p_device_model, '')), ''), device_model),
+            ios_version = coalesce(nullif(trim(coalesce(p_ios_version, '')), ''), ios_version),
+            app_version = coalesce(nullif(trim(coalesce(p_app_version, '')), ''), app_version),
+            last_ip = coalesce(v_ip, last_ip),
+            last_checked_at = now(),
+            used_at = coalesce(used_at, now()),
+            updated_at = now()
+        where id = v_license.id
+        returning * into v_license;
+
         return json_build_object(
             'success', true,
             'message', 'Key verified',
@@ -247,6 +301,12 @@ begin
         device_id = v_device,
         activated_at = now(),
         used_at = now(),
+        device_model = nullif(trim(coalesce(p_device_model, '')), ''),
+        ios_version = nullif(trim(coalesce(p_ios_version, '')), ''),
+        app_version = nullif(trim(coalesce(p_app_version, '')), ''),
+        activation_ip = v_ip,
+        last_ip = v_ip,
+        last_checked_at = now(),
         status = 'active',
         is_active = true,
         updated_at = now()
@@ -262,9 +322,14 @@ begin
 end;
 $$;
 
+drop function if exists public.check_license(text, text);
+
 create or replace function public.check_license(
     p_license_key text,
-    p_device_id text
+    p_device_id text,
+    p_device_model text default null,
+    p_ios_version text default null,
+    p_app_version text default null
 )
 returns json
 language plpgsql
@@ -275,6 +340,7 @@ declare
     v_license public.licenses%rowtype;
     v_key text;
     v_device text := trim(coalesce(p_device_id, ''));
+    v_ip text := public.request_ip();
 begin
     v_key := public.normalize_license_key(p_license_key);
 
@@ -320,6 +386,18 @@ begin
     if v_license.device_id <> v_device then
         return json_build_object('success', false, 'message', 'This key is already used on another device', 'capabilities', json_build_array(), 'expires_at', v_license.expires_at);
     end if;
+
+    update public.licenses
+    set
+        device_model = coalesce(nullif(trim(coalesce(p_device_model, '')), ''), device_model),
+        ios_version = coalesce(nullif(trim(coalesce(p_ios_version, '')), ''), ios_version),
+        app_version = coalesce(nullif(trim(coalesce(p_app_version, '')), ''), app_version),
+        last_ip = coalesce(v_ip, last_ip),
+        last_checked_at = now(),
+        used_at = coalesce(used_at, now()),
+        updated_at = now()
+    where id = v_license.id
+    returning * into v_license;
 
     return json_build_object(
         'success', true,
@@ -430,7 +508,13 @@ returns table (
     status text,
     label text,
     device_id text,
+    device_model text,
+    ios_version text,
+    app_version text,
+    activation_ip text,
+    last_ip text,
     activated_at timestamptz,
+    last_checked_at timestamptz,
     used_at timestamptz,
     expires_at timestamptz,
     capabilities jsonb,
@@ -458,7 +542,13 @@ begin
         l.status,
         l.label,
         l.device_id,
+        l.device_model,
+        l.ios_version,
+        l.app_version,
+        l.activation_ip,
+        l.last_ip,
         l.activated_at,
+        l.last_checked_at,
         l.used_at,
         l.expires_at,
         coalesce(l.capabilities, '[]'::jsonb),
@@ -466,6 +556,70 @@ begin
         l.updated_at
     from public.licenses l
     order by l.created_at desc, l.id desc;
+end;
+$$;
+
+create or replace function public.admin_reset_license_device(
+    p_license_key text
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_key text := public.normalize_license_key(p_license_key);
+    v_license public.licenses%rowtype;
+begin
+    if not public.is_license_admin() then
+        raise exception 'Not authorized';
+    end if;
+
+    if v_key = '' then
+        return json_build_object('success', false, 'message', 'Invalid key');
+    end if;
+
+    select *
+    into v_license
+    from public.licenses
+    where license_key = v_key
+    for update;
+
+    if not found then
+        return json_build_object('success', false, 'message', 'Key not found');
+    end if;
+
+    update public.licenses
+    set
+        device_id = null,
+        device_model = null,
+        ios_version = null,
+        app_version = null,
+        activation_ip = null,
+        last_ip = null,
+        activated_at = null,
+        last_checked_at = null,
+        used_at = null,
+        status = case
+            when expires_at is not null and expires_at <= now() then 'expired'
+            when status = 'blocked' then 'blocked'
+            else 'available'
+        end,
+        is_active = case
+            when expires_at is not null and expires_at <= now() then false
+            when status = 'blocked' then false
+            else true
+        end,
+        updated_at = now()
+    where id = v_license.id
+    returning * into v_license;
+
+    return json_build_object(
+        'success', true,
+        'message', 'Device reset',
+        'license_key', v_license.license_key,
+        'status', v_license.status
+    );
 end;
 $$;
 
@@ -635,19 +789,22 @@ revoke all on function public.normalize_license_key(text) from public;
 revoke all on function public.generate_secure_license_key(text) from public;
 revoke all on function public.is_license_admin() from public;
 revoke all on function public.license_status_message(text) from public;
-revoke all on function public.activate_license(text, text) from public;
-revoke all on function public.check_license(text, text) from public;
+revoke all on function public.request_ip() from public;
+revoke all on function public.activate_license(text, text, text, text, text) from public;
+revoke all on function public.check_license(text, text, text, text, text) from public;
 revoke all on function public.admin_generate_licenses(integer, integer, text, jsonb, text) from public;
 revoke all on function public.admin_list_licenses() from public;
+revoke all on function public.admin_reset_license_device(text) from public;
 revoke all on function public.admin_set_license_status(text, text) from public;
 revoke all on function public.admin_set_license_expiration(text, timestamptz) from public;
 revoke all on function public.admin_delete_license(text) from public;
 
-grant execute on function public.activate_license(text, text) to anon, authenticated;
-grant execute on function public.check_license(text, text) to anon, authenticated;
+grant execute on function public.activate_license(text, text, text, text, text) to anon, authenticated;
+grant execute on function public.check_license(text, text, text, text, text) to anon, authenticated;
 grant execute on function public.is_license_admin() to authenticated;
 grant execute on function public.admin_generate_licenses(integer, integer, text, jsonb, text) to authenticated;
 grant execute on function public.admin_list_licenses() to authenticated;
+grant execute on function public.admin_reset_license_device(text) to authenticated;
 grant execute on function public.admin_set_license_status(text, text) to authenticated;
 grant execute on function public.admin_set_license_expiration(text, timestamptz) to authenticated;
 grant execute on function public.admin_delete_license(text) to authenticated;

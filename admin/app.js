@@ -3,7 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://qlfugpumolehqzzuvocn.supabase.co";
 const SUPABASE_KEY = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y";
 const BUCKET = "greeg-content";
-const SCRIPT_VERSION = "20260924-dynamic-files";
+const SCRIPT_VERSION = "20260924-delete-keys";
 const DEFAULT_TARGET_BUNDLE = "com.dts.freefireth";
 const FREE_FIRE_MAX_BUNDLE = "com.dts.freefiremax";
 const ASSET_INDEXER_DIRECTORY = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar";
@@ -46,14 +46,6 @@ const VISIBLE_PATCH_NAMES = new Set([
   "aimbot cuello ff normal",
   "aimbot pecho ff normal",
 ]);
-const LEGACY_PATCH_NAMES = new Set([
-  "asset indexer",
-  "shaders",
-  "144 fps",
-  "only esp ffth",
-  "aimbot drag ff max",
-]);
-
 const PATCH_PRESETS = [
   {
     key: "pecho-antena",
@@ -150,6 +142,7 @@ window.__GREEG_ADMIN_READY = SCRIPT_VERSION;
 
 const state = {
   files: [],
+  licenses: [],
   session: null,
   busy: false,
 };
@@ -187,9 +180,18 @@ const els = {
   searchInput: $("#searchInput"),
   presetList: $("#presetList"),
   fileCounter: $("#fileCounter"),
+  archivedCounter: $("#archivedCounter"),
   statusText: $("#statusText"),
   fileList: $("#fileList"),
+  archivedBlock: $("#archivedBlock"),
+  archivedFileList: $("#archivedFileList"),
   fileTemplate: $("#fileTemplate"),
+  refreshKeysButton: $("#refreshKeysButton"),
+  keySearchInput: $("#keySearchInput"),
+  keyCounter: $("#keyCounter"),
+  keysStatusText: $("#keysStatusText"),
+  keyList: $("#keyList"),
+  keyTemplate: $("#keyTemplate"),
 };
 
 init();
@@ -230,6 +232,8 @@ function bindEvents() {
   els.refreshButton.addEventListener("click", loadFiles);
   els.publishButton.addEventListener("click", publishChanges);
   els.searchInput.addEventListener("input", renderFiles);
+  els.refreshKeysButton.addEventListener("click", loadKeys);
+  els.keySearchInput.addEventListener("input", renderKeys);
   els.nameInput.addEventListener("input", () => {
     if (!els.editingId.value && !els.slugInput.dataset.touched) {
       els.slugInput.value = safeSlug(els.nameInput.value);
@@ -384,9 +388,12 @@ function setSession(session) {
   if (signedIn) {
     setLoginStatus("Sesion iniciada.", false, true);
     loadFiles();
+    loadKeys();
   } else {
     state.files = [];
+    state.licenses = [];
     renderFiles();
+    renderKeys();
   }
 }
 
@@ -406,6 +413,23 @@ async function loadFiles() {
   state.files = (data ?? []).filter(isGreegFile);
   setStatus("Listo. Recuerda publicar para que los iPhone reciban los cambios.");
   renderFiles();
+}
+
+async function loadKeys() {
+  if (!state.session) return;
+  els.keysStatusText.textContent = "Cargando keys...";
+  const { data, error } = await supabaseClient.rpc("admin_list_licenses");
+
+  if (error) {
+    els.keysStatusText.textContent = adminErrorMessage(error);
+    state.licenses = [];
+    renderKeys();
+    return;
+  }
+
+  state.licenses = data ?? [];
+  els.keysStatusText.textContent = "Keys cargadas. La activacion se valida en Supabase.";
+  renderKeys();
 }
 
 async function saveFile(event) {
@@ -515,7 +539,7 @@ async function toggleActive(file) {
 
 async function deleteFile(file) {
   if (!state.session || state.busy) return;
-  const ok = confirm(`Eliminar "${file.name}" en la proxima publicacion?`);
+  const ok = confirm(`Eliminar "${file.name}"?\n\nSe quitara del manifest al publicar. El iPhone dejara de verlo despues de sincronizar.`);
   if (!ok) return;
 
   setBusy(true, "Marcando eliminacion...");
@@ -530,6 +554,26 @@ async function deleteFile(file) {
   }
 
   await loadFiles();
+}
+
+async function resetLicenseDevice(license) {
+  if (!state.session || state.busy) return;
+  const ok = confirm(`Liberar dispositivo de esta key?\n\n${license.license_key}\n\nDespues otro iPhone podra activarla.`);
+  if (!ok) return;
+
+  setBusy(true, "Liberando dispositivo...");
+  const { data, error } = await supabaseClient.rpc("admin_reset_license_device", {
+    p_license_key: license.license_key,
+  });
+  setBusy(false);
+
+  if (error || data?.success === false) {
+    els.keysStatusText.textContent = adminErrorMessage(error || data?.message || "No se pudo liberar la key.");
+    return;
+  }
+
+  els.keysStatusText.textContent = "Dispositivo liberado. La key queda lista para otro iPhone.";
+  await loadKeys();
 }
 
 async function disablePreset(preset) {
@@ -569,7 +613,7 @@ async function publishChanges() {
   if (!state.session || state.busy) return;
   setBusy(true, "Corrigiendo categorias...");
   try {
-    await deleteLegacyVisibleFiles();
+    const removableStoragePaths = storagePathsSafeToRemove(state.files);
     await normalizeStyleCategories();
     setStatus("Publicando manifest...");
     const { data, error } = await supabaseClient.rpc("admin_publish_remote_content");
@@ -579,6 +623,7 @@ async function publishChanges() {
       return;
     }
 
+    await removeUnusedStorageObjects(removableStoragePaths);
     setStatus(`Publicado v${data?.version ?? "nueva"}. Los iPhone lo veran al abrir o al buscar actualizaciones.`);
     await loadFiles();
   } catch (error) {
@@ -587,6 +632,14 @@ async function publishChanges() {
     window.alert(message);
   } finally {
     setBusy(false);
+  }
+}
+
+async function removeUnusedStorageObjects(paths) {
+  if (!paths.length) return;
+  const { error } = await supabaseClient.storage.from(BUCKET).remove(paths);
+  if (error) {
+    console.warn("No se pudieron limpiar algunos objetos antiguos de Storage:", error.message || error);
   }
 }
 
@@ -749,55 +802,132 @@ function renderPresets() {
 
 function renderFiles() {
   const query = els.searchInput.value.trim().toLowerCase();
-  const files = state.files.filter((file) => {
+  const matchedFiles = state.files.filter((file) => {
     if (!query) return true;
     return [file.name, file.slug, file.file_name, file.target_bundle, file.target_path, file.category, file.description]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query));
   });
+  const activeFiles = matchedFiles.filter(isManifestFile);
+  const activeIds = new Set(activeFiles.map((file) => file.id));
+  const archivedFiles = matchedFiles.filter((file) => !activeIds.has(file.id));
 
   els.fileList.replaceChildren();
-  els.fileCounter.textContent = `${files.length} ${files.length === 1 ? "archivo" : "archivos"}`;
+  els.archivedFileList.replaceChildren();
+  els.fileCounter.textContent = `${activeFiles.length} ${activeFiles.length === 1 ? "archivo vigente" : "archivos vigentes"}`;
+  els.archivedCounter.textContent = `${archivedFiles.length} ${archivedFiles.length === 1 ? "archivo" : "archivos"}`;
+  els.archivedBlock.classList.toggle("hidden", archivedFiles.length === 0);
   renderPresets();
 
-  if (!files.length) {
+  if (!activeFiles.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = state.files.length ? "No hay resultados para esa busqueda." : "Todavia no hay archivos.";
+    empty.textContent = state.files.length ? "No hay archivos vigentes para esa busqueda." : "Todavia no hay archivos vigentes.";
     els.fileList.append(empty);
+  }
+
+  for (const file of activeFiles) {
+    els.fileList.append(renderFileCard(file));
+  }
+
+  for (const file of archivedFiles) {
+    els.archivedFileList.append(renderFileCard(file));
+  }
+}
+
+function renderKeys() {
+  if (!els.keyList) return;
+  const query = els.keySearchInput.value.trim().toLowerCase();
+  const licenses = state.licenses.filter((license) => {
+    if (!query) return true;
+    return [
+      license.license_key,
+      license.status,
+      license.label,
+      license.device_id,
+      license.device_model,
+      license.ios_version,
+      license.app_version,
+      license.activation_ip,
+      license.last_ip,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
+
+  els.keyList.replaceChildren();
+  els.keyCounter.textContent = `${licenses.length} ${licenses.length === 1 ? "key" : "keys"}`;
+
+  if (!licenses.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = state.licenses.length ? "No hay keys para esa busqueda." : "Todavia no hay keys.";
+    els.keyList.append(empty);
     return;
   }
 
-  for (const file of files) {
-    const node = els.fileTemplate.content.firstElementChild.cloneNode(true);
-    node.querySelector("h3").textContent = file.name;
+  for (const license of licenses) {
+    const node = els.keyTemplate.content.firstElementChild.cloneNode(true);
+    node.querySelector("h3").textContent = license.license_key;
     node.querySelector(".fileMeta").textContent = [
-      file.category || "files",
-      `v${file.version}`,
-      file.target_bundle || DEFAULT_TARGET_BUNDLE,
-      file.file_name,
-      formatBytes(file.byte_size),
-    ].join(" / ");
-    node.querySelector(".filePath").textContent = `Ruta: ${file.target_path || fallbackTargetPath(file)}`;
-    node.querySelector(".fileHash").textContent = file.sha256;
-    const style = styleFromDescription(file.description, file.name);
-    const styleBadge = node.querySelector(".styleBadge");
-    styleBadge.textContent = PATCH_STYLES[style].label;
-    styleBadge.classList.add(PATCH_STYLES[style].className);
+      `Estado: ${licenseStatusLabel(license)}`,
+      license.label ? `Nota: ${license.label}` : null,
+      license.expires_at ? `Expira: ${formatDate(license.expires_at)}` : "Sin expiracion",
+    ].filter(Boolean).join(" / ");
+    node.querySelector(".filePath").textContent = [
+      `Activada: ${formatDate(license.activated_at)}`,
+      `Ultima actividad: ${formatDate(license.last_checked_at || license.used_at)}`,
+      `Modelo: ${license.device_model || "no disponible"}`,
+      `iOS: ${license.ios_version || "no disponible"}`,
+      `App: ${license.app_version || "no disponible"}`,
+    ].join(" | ");
+    node.querySelector(".fileHash").textContent = [
+      `Device ID: ${license.device_id || "sin activar"}`,
+      `IP activacion: ${license.activation_ip || "no disponible"}`,
+      `Ultima IP: ${license.last_ip || "no disponible"}`,
+    ].join(" | ");
 
     const badge = node.querySelector(".badge");
-    badge.textContent = badgeLabel(file);
-    badge.classList.toggle("pending", file.sync_state !== "published");
-    badge.classList.toggle("inactive", !file.is_active || file.deleted_at);
+    badge.textContent = licenseStatusLabel(license);
+    badge.classList.toggle("inactive", license.status !== "active" && license.status !== "available");
+    badge.classList.toggle("pending", license.status === "available");
 
-    const toggleButton = node.querySelector(".toggleButton");
-    toggleButton.textContent = file.is_active ? "Desactivar" : "Activar";
-    toggleButton.addEventListener("click", () => toggleActive(file));
-    node.querySelector(".replaceButton").addEventListener("click", () => editFile(file));
-    node.querySelector(".deleteButton").addEventListener("click", () => deleteFile(file));
-
-    els.fileList.append(node);
+    const resetButton = node.querySelector(".resetDeviceButton");
+    resetButton.disabled = !license.device_id || state.busy;
+    resetButton.addEventListener("click", () => resetLicenseDevice(license));
+    els.keyList.append(node);
   }
+}
+
+function renderFileCard(file) {
+  const node = els.fileTemplate.content.firstElementChild.cloneNode(true);
+  node.dataset.fileId = file.id;
+  node.querySelector("h3").textContent = file.name;
+  node.querySelector(".fileMeta").textContent = [
+    file.category || "files",
+    `v${file.version}`,
+    file.target_bundle || DEFAULT_TARGET_BUNDLE,
+    file.file_name,
+    formatBytes(file.byte_size),
+  ].join(" / ");
+  node.querySelector(".filePath").textContent = `Ruta: ${file.target_path || fallbackTargetPath(file)}`;
+  node.querySelector(".fileHash").textContent = file.sha256;
+  const style = styleFromDescription(file.description, file.name);
+  const styleBadge = node.querySelector(".styleBadge");
+  styleBadge.textContent = PATCH_STYLES[style].label;
+  styleBadge.classList.add(PATCH_STYLES[style].className);
+
+  const badge = node.querySelector(".badge");
+  badge.textContent = badgeLabel(file);
+  badge.classList.toggle("pending", file.sync_state !== "published");
+  badge.classList.toggle("inactive", !isManifestFile(file));
+
+  const toggleButton = node.querySelector(".toggleButton");
+  toggleButton.textContent = file.is_active && !file.deleted_at ? "Desactivar" : "Activar";
+  toggleButton.addEventListener("click", () => toggleActive(file));
+  node.querySelector(".replaceButton").addEventListener("click", () => editFile(file));
+  node.querySelector(".deleteButton").addEventListener("click", () => deleteFile(file));
+  return node;
 }
 
 function presetRules(preset) {
@@ -901,23 +1031,6 @@ async function normalizeStyleCategories() {
       p_sha256: file.sha256,
       p_storage_path: file.storage_path,
       p_force_new: false,
-    });
-    if (error) throw error;
-  }
-}
-
-async function deleteLegacyVisibleFiles() {
-  const legacyFiles = state.files.filter((file) => {
-    if (file.deleted_at) return false;
-    const description = String(file.description || "");
-    if (STYLE_MARKER_PATTERN.test(description)) return false;
-    const normalized = normalizedName(file.name);
-    return LEGACY_PATCH_NAMES.has(normalized);
-  });
-
-  for (const file of legacyFiles) {
-    const { error } = await supabaseClient.rpc("admin_delete_remote_content_file", {
-      p_id: file.id,
     });
     if (error) throw error;
   }
@@ -1031,6 +1144,41 @@ function isGreegFile(file) {
   const category = String(file.category || "").toLowerCase();
   const slug = String(file.slug || "").toLowerCase();
   return !category.startsWith("glizzy-") && !slug.startsWith("glizzy-");
+}
+
+function isManifestFile(file) {
+  return file?.manifest_included === true
+    || (file?.manifest_included !== false && file?.is_active === true && !file?.deleted_at);
+}
+
+function storagePathsSafeToRemove(files) {
+  const paths = files
+    .filter((file) => {
+      if (!file.deleted_at || !file.storage_path) return false;
+      if (file.storage_path.startsWith("content/tombstone/")) return false;
+      return files.filter((other) => other.storage_path === file.storage_path).length === 1;
+    })
+    .map((file) => file.storage_path);
+  return [...new Set(paths)];
+}
+
+function licenseStatusLabel(license) {
+  const status = String(license?.status || "available").toLowerCase();
+  if (status === "active") return "activada";
+  if (status === "blocked") return "bloqueada";
+  if (status === "expired") return "expirada";
+  if (status === "paused") return "pausada";
+  return "disponible";
+}
+
+function formatDate(value) {
+  if (!value) return "no disponible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "no disponible";
+  return new Intl.DateTimeFormat("es", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function fallbackTargetPath(file) {

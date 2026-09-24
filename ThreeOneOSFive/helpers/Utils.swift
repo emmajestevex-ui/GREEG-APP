@@ -94,6 +94,11 @@ enum AppInfo {
         default: return displayMachineName
         }
     }
+    static var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "AppReleaseDisplayVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? "0"
+    }
     static var launchAttestationToken: String { DisplayIdentityAttestationToken() }
     static var isHomeButton: Bool {
         let sel = NSSelectorFromString("_hasHomeButton")

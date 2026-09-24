@@ -384,7 +384,10 @@ final class RemoteContentStore: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "p_license_key": licenseKey,
-            "p_device_id": DeviceInstallationID.current()
+            "p_device_id": DeviceInstallationID.current(),
+            "p_device_model": AppInfo.displayMachineName,
+            "p_ios_version": "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
+            "p_app_version": AppInfo.currentVersion
         ])
 
         let (data, response) = try await session.data(for: request)
