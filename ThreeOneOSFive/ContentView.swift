@@ -234,8 +234,9 @@ private struct GreegPatchLibraryView: View {
     private var visibleItems: [PatchLibraryItem] {
         store.items
             .filter { item in
-                guard let name = item.project?.name else { return false }
-                return Self.normalizedDisplayOrder.contains(Self.normalize(name))
+                guard let project = item.project else { return false }
+                return Self.normalizedDisplayOrder.contains(Self.normalize(project.name))
+                    && Self.hasCurrentCategoryMarker(project)
             }
             .sorted { left, right in
                 let leftIndex = Self.rank(for: left.project?.name)
@@ -346,6 +347,13 @@ private struct GreegPatchLibraryView: View {
     private static func rank(for name: String?) -> Int {
         let normalized = normalize(name ?? "")
         return normalizedDisplayOrder.firstIndex(of: normalized) ?? Int.max
+    }
+
+    private static func hasCurrentCategoryMarker(_ project: PatchProject) -> Bool {
+        let author = project.author.lowercased()
+        return author.contains("[greeg_category:aimbots]")
+            || author.contains("[greeg_category:shaders]")
+            || author.contains("[greeg_category:packages]")
     }
 
     private static func normalize(_ value: String) -> String {

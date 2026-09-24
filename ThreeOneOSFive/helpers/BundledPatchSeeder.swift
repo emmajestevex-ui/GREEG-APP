@@ -116,7 +116,7 @@ enum BundledPatchSeeder {
 
     private static let payloadDirectoryName = "BundledPatchPayloads"
     private static let seedDate = Date(timeIntervalSince1970: 0)
-    private static let remotePatchCategories: Set<String> = ["aimbots", "patches", "shaders", "configs", "packages"]
+    private static let remotePatchCategories: Set<String> = ["aimbots", "shaders", "configs", "packages"]
     private static let assetIndexerProjectID = UUID(uuidString: "A55E0001-3105-4A55-9001-00000000BEEF")!
     private static let assetIndexerVariantKey = "greeg.assetIndexerVariant"
     private static let remoteAssetIndexerVariantPrefix = "greeg.remoteAssetIndexerVariant."
@@ -691,14 +691,15 @@ enum BundledPatchSeeder {
     private static func remoteStyleMarker(for file: RemoteContentFile) -> String {
         guard let description = file.description else { return "" }
         let lowercased = description.lowercased()
+        let category = "[GREEG_CATEGORY:\(file.category.lowercased())]"
         if lowercased.contains("[greeg_style:antena]") {
-            return "[GREEG_STYLE:antena]"
+            return "[GREEG_STYLE:antena] \(category)"
         }
         if lowercased.contains("[greeg_style:holo]") {
-            return "[GREEG_STYLE:holo]"
+            return "[GREEG_STYLE:holo] \(category)"
         }
         if lowercased.contains("[greeg_style:aimbot-normal]") {
-            return "[GREEG_STYLE:aimbot-normal]"
+            return "[GREEG_STYLE:aimbot-normal] \(category)"
         }
         return ""
     }

@@ -35,6 +35,17 @@ const PATCH_STYLES = {
     className: "styleAimbot",
   },
 };
+const VISIBLE_PATCH_NAMES = new Set([
+  "pecho + antena",
+  "drag + antena",
+  "magic + antena",
+  "cuello + antena",
+  "holo rgb",
+  "holo ff normal pj",
+  "balas magicas ff normal",
+  "aimbot cuello ff normal",
+  "aimbot pecho ff normal",
+]);
 
 const PATCH_PRESETS = [
   {
@@ -262,6 +273,9 @@ function bindEvents() {
     els.slugInput.value = safeSlug(els.slugInput.value);
   });
   els.categoryInput.addEventListener("change", suggestTargetPath);
+  els.styleInput.addEventListener("change", () => {
+    els.categoryInput.value = categoryForStyle(els.styleInput.value, els.categoryInput.value);
+  });
   els.targetBundleInput.addEventListener("change", syncAssetVariantWithTargetBundle);
   els.assetVariantInput.addEventListener("change", () => {
     applyAssetVariant(els.assetVariantInput.value);
@@ -481,7 +495,7 @@ async function saveFile(event) {
       p_id: els.editingId.value || null,
       p_name: name,
       p_slug: slug,
-      p_category: els.categoryInput.value || "files",
+      p_category: categoryForStyle(els.styleInput.value, els.categoryInput.value),
       p_target_bundle: targetBundle,
       p_target_path: targetPath,
       p_description: withStyleMarker(els.descriptionInput.value, els.styleInput.value),
@@ -586,17 +600,26 @@ async function disablePreset(preset) {
 
 async function publishChanges() {
   if (!state.session || state.busy) return;
-  setBusy(true, "Publicando manifest...");
-  const { data, error } = await supabaseClient.rpc("admin_publish_remote_content");
-  setBusy(false);
+  setBusy(true, "Corrigiendo categorias...");
+  try {
+    await normalizeStyleCategories();
+    setStatus("Publicando manifest...");
+    const { data, error } = await supabaseClient.rpc("admin_publish_remote_content");
 
-  if (error) {
-    setStatus(adminErrorMessage(error));
-    return;
+    if (error) {
+      setStatus(adminErrorMessage(error));
+      return;
+    }
+
+    setStatus(`Publicado v${data?.version ?? "nueva"}. Los iPhone lo veran al abrir o al buscar actualizaciones.`);
+    await loadFiles();
+  } catch (error) {
+    const message = adminErrorMessage(error);
+    setStatus(message);
+    window.alert(message);
+  } finally {
+    setBusy(false);
   }
-
-  setStatus(`Publicado v${data?.version ?? "nueva"}. Los iPhone lo veran al abrir o al buscar actualizaciones.`);
-  await loadFiles();
 }
 
 function editFile(file) {
@@ -851,6 +874,12 @@ function styleFromDescription(description = "", name = "") {
   return styleForName(name);
 }
 
+function categoryForStyle(style = "antena", fallback = "files") {
+  if (style === "holo") return "shaders";
+  if (style === "antena" || style === "aimbot-normal") return "aimbots";
+  return fallback || "files";
+}
+
 function styleForName(name = "") {
   const normalized = String(name || "")
     .normalize("NFD")
@@ -862,14 +891,66 @@ function styleForName(name = "") {
 }
 
 function cleanDescription(description = "") {
-  return String(description || "").replace(STYLE_MARKER_PATTERN, "").trim();
+  return String(description || "")
+    .replace(STYLE_MARKER_PATTERN, "")
+    .replace(/\s*\[GREEG_CATEGORY:(aimbots|shaders)\]\s*/i, "")
+    .trim();
 }
 
 function withStyleMarker(description = "", style = "antena") {
   const clean = cleanDescription(description);
   const safeStyle = PATCH_STYLES[style] ? style : "antena";
-  const marker = `${STYLE_MARKER_PREFIX}${safeStyle}]`;
+  const marker = `${STYLE_MARKER_PREFIX}${safeStyle}] [GREEG_CATEGORY:${categoryForStyle(safeStyle)}]`;
   return clean ? `${clean} ${marker}` : marker;
+}
+
+async function normalizeStyleCategories() {
+  const candidates = state.files.filter((file) => {
+    if (file.deleted_at || !file.is_active) return false;
+    if (!isVisiblePatchFile(file)) return false;
+    const description = String(file.description || "");
+    const style = styleFromDescription(file.description, file.name);
+    const wantedCategory = categoryForStyle(style, file.category || "files");
+    return (file.category || "files") !== wantedCategory
+      || !STYLE_MARKER_PATTERN.test(description)
+      || !new RegExp(`\\[GREEG_CATEGORY:${wantedCategory}\\]`, "i").test(description);
+  });
+
+  for (const file of candidates) {
+    const style = styleFromDescription(file.description, file.name);
+    const wantedCategory = categoryForStyle(style, file.category || "files");
+    const { error } = await supabaseClient.rpc("admin_upsert_remote_content_file", {
+      p_id: file.id,
+      p_name: file.name,
+      p_slug: file.slug,
+      p_category: wantedCategory,
+      p_target_bundle: safeTargetBundle(file.target_bundle),
+      p_target_path: file.target_path || fallbackTargetPath(file),
+      p_description: withStyleMarker(file.description, style),
+      p_file_name: file.file_name,
+      p_mime_type: file.mime_type || "application/octet-stream",
+      p_byte_size: file.byte_size,
+      p_sha256: file.sha256,
+      p_storage_path: file.storage_path,
+      p_force_new: false,
+    });
+    if (error) throw error;
+  }
+}
+
+function isVisiblePatchFile(file) {
+  const description = String(file.description || "");
+  if (STYLE_MARKER_PATTERN.test(description)) return true;
+  return VISIBLE_PATCH_NAMES.has(normalizedName(file.name));
+}
+
+function normalizedName(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function safeTargetBundle(value) {
