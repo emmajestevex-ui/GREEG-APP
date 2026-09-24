@@ -4,11 +4,11 @@ enum BundledPatchSeeder {
 
     // MARK: - Legacy bundled projects
 
-    // Estos proyectos antes venían integrados dentro de la IPA.
-    // Ahora el PANEL / SUPABASE será la única fuente de contenido.
+    // Estos UUID pertenecen únicamente a los proyectos que antiguamente
+    // venían integrados dentro de la IPA.
     //
-    // Conservamos los UUID únicamente para poder limpiar instalaciones
-    // antiguas que todavía tengan estos proyectos guardados localmente.
+    // Ya NO se crean automáticamente.
+    // Supabase / Panel es ahora la fuente de contenido.
 
     private static let retiredBundledProjectIDs: Set<UUID> = [
         UUID(uuidString: "A55E0001-3105-4A55-9001-00000000BEEF")!, // Asset Indexer
@@ -17,41 +17,27 @@ enum BundledPatchSeeder {
         UUID(uuidString: "A55E0004-3105-4A55-9001-00000000BEEF")!  // TIO GREEG
     ]
 
-    // Nombres antiguos conocidos.
-    // Se usan como respaldo durante la limpieza de instalaciones viejas.
-    private static let retiredBundledNames: Set<String> = [
-        "asset indexer",
-        "asse",
-        "shaders",
-        "144 fps",
-        "tio greeg"
-    ]
-
     // MARK: - Public API
 
-    // Ya NO existen proyectos obligatorios integrados en la IPA.
-    //
-    // Todo debe venir del manifiesto remoto publicado desde el panel.
+    // Ya no existen proyectos obligatorios integrados en la IPA.
+    // Todo el contenido visible debe venir del panel.
     static var projectIDs: Set<UUID> {
         []
     }
 
-    // Como ya no hay proyectos bundled que ordenar,
-    // todos los proyectos normales quedan fuera de este ranking especial.
+    // Ya no existen proyectos bundled que necesiten prioridad especial.
     static func sortRank(for id: UUID) -> Int {
         Int.max
     }
 
-    // Esta función se mantiene porque RemoteContentSyncService
-    // todavía llama BundledPatchSeeder.seedIfNeeded().
+    // RemoteContentSyncService todavía llama esta función.
     //
-    // Pero ahora NO crea archivos.
-    // Su única función es limpiar los proyectos antiguos integrados
-    // por versiones anteriores de GREEG APP.
+    // Ahora NO crea proyectos.
+    // Solo limpia los proyectos bundled antiguos que pudieran
+    // quedar instalados por una versión anterior de GREEG APP.
     static func seedIfNeeded(
         fileManager: FileManager = .default
     ) {
-
         cleanupRetiredBundledProjects(
             fileManager: fileManager
         )
@@ -71,38 +57,29 @@ enum BundledPatchSeeder {
 
         for item in items {
 
-            let project = item.project
+            guard let project = item.project else {
+                continue
+            }
 
-            let normalizedName = project.name
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-
-            let matchesOldID =
-                retiredBundledProjectIDs.contains(project.id)
-
-            let matchesOldName =
-                retiredBundledNames.contains(normalizedName)
-
-            // Preferimos el UUID como identificación principal.
+            // IMPORTANTE:
+            // Solo eliminamos los UUID exactos que pertenecían
+            // a los proyectos incluidos antiguamente en la IPA.
             //
-            // El nombre queda como respaldo para versiones antiguas
-            // donde pudiera haberse guardado uno de estos proyectos
-            // con información legacy.
-            guard matchesOldID || matchesOldName else {
+            // NO eliminamos por nombre.
+            // Así un proyecto nuevo creado desde el panel puede llamarse
+            // "144 fps", "Shaders", "Asset Indexer", etc. sin ser borrado.
+            guard retiredBundledProjectIDs.contains(project.id) else {
                 continue
             }
 
             do {
 
-                // Eliminar el paquete guardado.
+                // PatchProjectLibrary.delete() elimina:
+                // - el paquete .3105
+                // - su workspace
+                // - la key local asociada
                 try PatchProjectLibrary.delete(
                     item,
-                    fileManager: fileManager
-                )
-
-                // Eliminar también cualquier workspace asociado.
-                try? PatchWorkspaceService.deleteWorkspace(
-                    projectID: project.id,
                     fileManager: fileManager
                 )
 
@@ -117,7 +94,8 @@ enum BundledPatchSeeder {
 
                 log(
                     "patch cleanup: ERROR eliminando " +
-                    "\(project.name): \(error.localizedDescription)"
+                    "\(project.name); id=\(project.id.uuidString); " +
+                    "\(error.localizedDescription)"
                 )
             }
         }
@@ -125,7 +103,8 @@ enum BundledPatchSeeder {
         if removedCount > 0 {
 
             log(
-                "patch cleanup: \(removedCount) proyecto(s) bundled antiguo(s) eliminado(s)"
+                "patch cleanup: \(removedCount) " +
+                "proyecto(s) bundled antiguo(s) eliminado(s)"
             )
 
         } else {
