@@ -3,7 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://qlfugpumolehqzzuvocn.supabase.co";
 const SUPABASE_KEY = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y";
 const BUCKET = "greeg-content";
-const SCRIPT_VERSION = "20260923-greeg-aimbots-category";
+const SCRIPT_VERSION = "20260924-dynamic-files";
 const DEFAULT_TARGET_BUNDLE = "com.dts.freefireth";
 const FREE_FIRE_MAX_BUNDLE = "com.dts.freefiremax";
 const ASSET_INDEXER_DIRECTORY = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar";
@@ -909,6 +909,8 @@ async function normalizeStyleCategories() {
 async function deleteLegacyVisibleFiles() {
   const legacyFiles = state.files.filter((file) => {
     if (file.deleted_at) return false;
+    const description = String(file.description || "");
+    if (STYLE_MARKER_PATTERN.test(description)) return false;
     const normalized = normalizedName(file.name);
     return LEGACY_PATCH_NAMES.has(normalized);
   });

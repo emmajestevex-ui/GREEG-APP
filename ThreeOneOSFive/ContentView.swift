@@ -140,9 +140,9 @@ private struct GreegHomeView: View {
 
                 Divider().overlay(Color.white.opacity(0.08))
 
-                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo", tint: GreegPatchKind.antena.tint)
-                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual", tint: GreegPatchKind.holo.tint)
-                HomePatchRow(icon: "scope", title: "Aimbots", subtitle: "Normales", tint: GreegPatchKind.aimbotNormal.tint)
+                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo", tint: GreegPatchStyle.antena.tint)
+                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual", tint: GreegPatchStyle.holo.tint)
+                HomePatchRow(icon: "scope", title: "Aimbots", subtitle: "Normales", tint: GreegPatchStyle.aimbotNormal.tint)
             }
         }
     }
@@ -230,14 +230,6 @@ private struct GreegPatchLibraryView: View {
     ]
 
     private static let normalizedFeaturedDisplayOrder: [String] = featuredDisplayOrder.map(normalize)
-    private static let hiddenLegacyNames: Set<String> = [
-        "asset indexer",
-        "shaders",
-        "144 fps",
-        "only esp ffth",
-        "aimbot drag ff max"
-    ]
-
     private var visibleItems: [PatchLibraryItem] {
         store.items
             .filter { item in
@@ -245,6 +237,9 @@ private struct GreegPatchLibraryView: View {
                 return Self.shouldShow(project)
             }
             .sorted { left, right in
+                let leftKind = GreegPatchKind(project: left.project)
+                let rightKind = GreegPatchKind(project: right.project)
+                if leftKind.rank != rightKind.rank { return leftKind.rank < rightKind.rank }
                 let leftIndex = Self.rank(for: left.project?.name)
                 let rightIndex = Self.rank(for: right.project?.name)
                 if leftIndex != rightIndex { return leftIndex < rightIndex }
@@ -253,7 +248,13 @@ private struct GreegPatchLibraryView: View {
     }
 
     private var groupedItems: [GreegPatchSection] {
-        GreegPatchKind.allCases.compactMap { kind in
+        let kinds = Array(Set(visibleItems.map { GreegPatchKind(project: $0.project) }))
+            .sorted { left, right in
+                if left.rank != right.rank { return left.rank < right.rank }
+                return left.sectionTitle.localizedStandardCompare(right.sectionTitle) == .orderedAscending
+            }
+
+        return kinds.compactMap { kind in
             let items = visibleItems.filter { kind == GreegPatchKind(project: $0.project) }
             return items.isEmpty ? nil : GreegPatchSection(kind: kind, items: items)
         }
@@ -357,15 +358,12 @@ private struct GreegPatchLibraryView: View {
     }
 
     private static func shouldShow(_ project: PatchProject) -> Bool {
-        let normalizedName = normalize(project.name)
-        if hiddenLegacyNames.contains(normalizedName) { return false }
-        return true
+        !project.rules.isEmpty || !project.directories.isEmpty
     }
 
     private static func discardReason(for project: PatchProject) -> String? {
-        let normalizedName = normalize(project.name)
-        if hiddenLegacyNames.contains(normalizedName) {
-            return "legacy-hidden-name"
+        if project.rules.isEmpty && project.directories.isEmpty {
+            return "sin-reglas-o-rutas"
         }
         return nil
     }
@@ -373,21 +371,21 @@ private struct GreegPatchLibraryView: View {
     private func logVisiblePatchAudit(items: [PatchLibraryItem]) {
         var shownCount = 0
         var discardedCount = 0
-        log("ui-files: library records received=\(items.count)")
+        log("registros recibidos de Supabase: \(items.count) (biblioteca local)")
         for item in items {
             guard let project = item.project else {
                 discardedCount += 1
-                log("ui-files: discarded <missing project> reason=decode-failed")
+                log("registros descartados: <sin proyecto>; motivo del descarte: no-decodificado")
                 continue
             }
             if let reason = Self.discardReason(for: project) {
                 discardedCount += 1
-                log("ui-files: discarded \(project.name) reason=\(reason)")
+                log("registros descartados: \(project.name); motivo del descarte: \(reason)")
             } else {
                 shownCount += 1
             }
         }
-        log("ui-files: records shown=\(shownCount) discarded=\(discardedCount)")
+        log("registros finalmente mostrados: \(shownCount); registros descartados: \(discardedCount)")
     }
 
     private static func normalize(_ value: String) -> String {
@@ -406,51 +404,102 @@ private struct GreegPatchSection: Identifiable {
     var id: String { kind.id }
 }
 
-private enum GreegPatchKind: String, CaseIterable, Identifiable {
+private struct GreegPatchKind: Hashable, Identifiable {
+    let id: String
+    let sectionTitle: String
+    let style: GreegPatchStyle
+    let rank: Int
+
+    init(project: PatchProject?) {
+        let author = project?.author.lowercased() ?? ""
+        let category = Self.metadataValue("greeg_category", in: author)
+        let style = Self.style(author: author, category: category, name: project?.name ?? "")
+        self.init(style: style, category: category)
+    }
+
+    private init(style: GreegPatchStyle, category: String?) {
+        self.style = style
+        switch style {
+        case .antena:
+            id = "style-antena"
+            sectionTitle = "ANTENA"
+            rank = 0
+        case .holo:
+            id = "style-holo"
+            sectionTitle = "HOLO"
+            rank = 1
+        case .aimbotNormal:
+            id = "style-aimbot-normal"
+            sectionTitle = "AIMBOT NORMAL"
+            rank = 2
+        case .category:
+            let title = Self.sectionTitle(for: category)
+            id = "category-\(Self.slug(for: title))"
+            sectionTitle = title
+            rank = 3
+        }
+    }
+
+    private static func style(author: String, category: String?, name: String) -> GreegPatchStyle {
+        if author.contains("[greeg_style:antena]") { return .antena }
+        if author.contains("[greeg_style:holo]") { return .holo }
+        if author.contains("[greeg_style:aimbot-normal]") { return .aimbotNormal }
+
+        let normalizedName = name
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+        if normalizedName.contains("antena") { return .antena }
+        if normalizedName.contains("holo") { return .holo }
+        if category == "shaders" { return .holo }
+        if category == "aimbots" || category == "patches" || category == "files" { return .aimbotNormal }
+        return .category
+    }
+
+    private static func metadataValue(_ key: String, in text: String) -> String? {
+        let pattern = "\\[\(key):([^\\]]+)\\]"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+        let value = String(text[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    var tint: Color {
+        style.tint
+    }
+
+    var iconName: String {
+        style.iconName
+    }
+
+    private static func sectionTitle(for category: String?) -> String {
+        guard let category, !category.isEmpty else { return "ARCHIVOS" }
+        return category
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .uppercased()
+    }
+
+    private static func slug(for value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+}
+
+private enum GreegPatchStyle: String, Hashable {
     case antena
     case holo
     case aimbotNormal
-
-    var id: String { rawValue }
-
-    init(project: PatchProject?) {
-        if let author = project?.author.lowercased() {
-            if author.contains("[greeg_style:antena]") {
-                self = .antena
-                return
-            }
-            if author.contains("[greeg_style:holo]") {
-                self = .holo
-                return
-            }
-            if author.contains("[greeg_style:aimbot-normal]") {
-                self = .aimbotNormal
-                return
-            }
-        }
-        self.init(name: project?.name ?? "")
-    }
-
-    init(name: String) {
-        let normalized = name
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            .lowercased()
-        if normalized.contains("antena") {
-            self = .antena
-        } else if normalized.contains("holo") {
-            self = .holo
-        } else {
-            self = .aimbotNormal
-        }
-    }
-
-    var sectionTitle: String {
-        switch self {
-        case .antena: return "ANTENA"
-        case .holo: return "HOLO"
-        case .aimbotNormal: return "AIMBOTS"
-        }
-    }
+    case category
 
     var tint: Color {
         switch self {
@@ -460,6 +509,8 @@ private enum GreegPatchKind: String, CaseIterable, Identifiable {
             return Color(red: 0.19, green: 0.84, blue: 0.38)
         case .aimbotNormal:
             return Color(red: 1.0, green: 0.78, blue: 0.16)
+        case .category:
+            return AppTheme.accent
         }
     }
 
@@ -471,6 +522,8 @@ private enum GreegPatchKind: String, CaseIterable, Identifiable {
             return "sparkles"
         case .aimbotNormal:
             return "scope"
+        case .category:
+            return "shippingbox.fill"
         }
     }
 }

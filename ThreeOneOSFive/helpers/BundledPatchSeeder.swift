@@ -684,28 +684,29 @@ enum BundledPatchSeeder {
 
     private static func standaloneRemotePatchFiles(fileManager: FileManager) -> [RemoteContentFile] {
         guard let manifest = RemoteContentLibrary.loadManifest(fileManager: fileManager) else {
-            log("patch: remote records received from Supabase=0 reason=no-local-manifest")
+            log("registros recibidos de Supabase: 0; motivo del descarte: no-local-manifest")
             return []
         }
 
         var visibleFiles: [RemoteContentFile] = []
         for file in manifest.files {
             if !file.isAvailable {
-                log("patch: remote discarded \(file.name) reason=inactive-or-deleted")
+                log("registros descartados: \(file.name); motivo del descarte: inactive-or-deleted")
                 continue
             }
             if isBuiltInRemoteFile(file) {
-                log("patch: remote discarded \(file.name) reason=built-in-route")
+                log("registros descartados: \(file.name); motivo del descarte: built-in-route")
                 continue
             }
             if RemoteContentLibrary.localFileURL(for: file, fileManager: fileManager) == nil {
-                log("patch: remote discarded \(file.name) reason=missing-local-payload")
+                log("registros descartados: \(file.name); motivo del descarte: missing-local-payload")
                 continue
             }
             visibleFiles.append(file)
         }
 
-        log("patch: remote records received from Supabase=\(manifest.files.count) candidates=\(visibleFiles.count)")
+        log("registros recibidos de Supabase: \(manifest.files.count)")
+        log("registros finalmente mostrados: \(visibleFiles.count)")
         return visibleFiles
     }
 
@@ -725,21 +726,7 @@ enum BundledPatchSeeder {
         if lowercased.contains("[greeg_style:aimbot-normal]") {
             return "[GREEG_STYLE:aimbot-normal] \(category)"
         }
-        return "[GREEG_STYLE:\(inferredRemoteStyle(for: file))] \(category)"
-    }
-
-    private static func inferredRemoteStyle(for file: RemoteContentFile) -> String {
-        let category = file.category.lowercased()
-        let name = file.name
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            .lowercased()
-        if category == "shaders" || name.contains("holo") {
-            return "holo"
-        }
-        if name.contains("antena") {
-            return "antena"
-        }
-        return "aimbot-normal"
+        return category
     }
 
     private static func isRemotePatchPackage(_ file: RemoteContentFile) -> Bool {

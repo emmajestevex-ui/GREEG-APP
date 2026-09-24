@@ -402,7 +402,7 @@ final class RemoteContentStore: ObservableObject {
         }
 
         let manifest = try decoder.decode(RemoteContentManifest.self, from: data)
-        log("remote-content: records received from Supabase=\(manifest.files.count) version=\(manifest.version)")
+        log("registros recibidos de Supabase: \(manifest.files.count); version=\(manifest.version)")
         return manifest
     }
 
@@ -422,7 +422,10 @@ final class RemoteContentStore: ObservableObject {
         }
         let availableCount = manifest.files.filter(\.isAvailable).count
         let discardedCount = manifest.files.count - availableCount
-        log("remote-content: records discarded by availability=\(discardedCount) available=\(availableCount)")
+        for file in manifest.files where !file.isAvailable {
+            log("registros descartados: \(file.name); motivo del descarte: inactive-or-deleted")
+        }
+        log("registros descartados: \(discardedCount); motivo del descarte: inactive-or-deleted; disponibles=\(availableCount)")
 
         let ids = manifest.files.map(\.id)
         guard Set(ids).count == ids.count else {
