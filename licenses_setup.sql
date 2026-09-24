@@ -431,11 +431,14 @@ begin
         raise exception 'Not authorized';
     end if;
 
-    update public.licenses
-    set status = 'expired', is_active = false, updated_at = now()
-    where expires_at is not null
-      and expires_at <= now()
-      and status not in ('blocked', 'expired');
+    update public.licenses as l
+    set
+        status = 'expired',
+        is_active = false,
+        updated_at = now()
+    where l.expires_at is not null
+      and l.expires_at <= now()
+      and l.status not in ('blocked', 'expired');
 
     return query
     select
@@ -449,137 +452,7 @@ begin
         coalesce(l.capabilities, '[]'::jsonb),
         l.created_at,
         l.updated_at
-    from public.licenses l
+    from public.licenses as l
     order by l.created_at desc, l.id desc;
 end;
 $$;
-
-create or replace function public.admin_set_license_status(
-    p_license_key text,
-    p_status text
-)
-returns json
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-    v_key text := public.normalize_license_key(p_license_key);
-    v_status text := lower(trim(coalesce(p_status, '')));
-    v_license public.licenses%rowtype;
-begin
-    if not public.is_license_admin() then
-        raise exception 'Not authorized';
-    end if;
-
-    if v_key = '' or v_status not in ('available', 'active', 'paused', 'blocked', 'expired') then
-        return json_build_object('success', false, 'message', 'Invalid request');
-    end if;
-
-    select *
-    into v_license
-    from public.licenses
-    where license_key = v_key
-    for update;
-
-    if not found then
-        return json_build_object('success', false, 'message', 'Key not found');
-    end if;
-
-    if v_status = 'available'
-       and (v_license.used_at is not null or v_license.device_id is not null or v_license.activated_at is not null) then
-        return json_build_object('success', false, 'message', 'Used keys cannot be reset to available');
-    end if;
-
-    if v_status = 'active' and v_license.device_id is null then
-        v_status := 'available';
-    end if;
-
-    update public.licenses
-    set
-        status = v_status,
-        is_active = v_status in ('available', 'active'),
-        updated_at = now()
-    where id = v_license.id
-    returning * into v_license;
-
-    return json_build_object(
-        'success', true,
-        'message', 'Key updated',
-        'license_key', v_license.license_key,
-        'status', v_license.status
-    );
-end;
-$$;
-
-create or replace function public.admin_set_license_expiration(
-    p_license_key text,
-    p_expires_at timestamptz
-)
-returns json
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-    v_key text := public.normalize_license_key(p_license_key);
-    v_status text;
-begin
-    if not public.is_license_admin() then
-        raise exception 'Not authorized';
-    end if;
-
-    if v_key = '' then
-        return json_build_object('success', false, 'message', 'Invalid key');
-    end if;
-
-    update public.licenses
-    set
-        expires_at = p_expires_at,
-        status = case
-            when p_expires_at is not null and p_expires_at <= now() then 'expired'
-            when status = 'expired' and p_expires_at is not null and p_expires_at > now() and device_id is not null then 'active'
-            when status = 'expired' and p_expires_at is not null and p_expires_at > now() and device_id is null then 'available'
-            else status
-        end,
-        is_active = case
-            when p_expires_at is not null and p_expires_at <= now() then false
-            when status in ('blocked', 'paused') then false
-            else true
-        end,
-        updated_at = now()
-    where license_key = v_key
-    returning status into v_status;
-
-    if not found then
-        return json_build_object('success', false, 'message', 'Key not found');
-    end if;
-
-    return json_build_object(
-        'success', true,
-        'message', 'Expiration updated',
-        'license_key', v_key,
-        'status', v_status,
-        'expires_at', p_expires_at
-    );
-end;
-$$;
-
-revoke all on function public.normalize_license_key(text) from public;
-revoke all on function public.generate_secure_license_key(text) from public;
-revoke all on function public.is_license_admin() from public;
-revoke all on function public.license_status_message(text) from public;
-revoke all on function public.activate_license(text, text) from public;
-revoke all on function public.check_license(text, text) from public;
-revoke all on function public.admin_generate_licenses(integer, integer, text, jsonb, text) from public;
-revoke all on function public.admin_list_licenses() from public;
-revoke all on function public.admin_set_license_status(text, text) from public;
-revoke all on function public.admin_set_license_expiration(text, timestamptz) from public;
-
-grant execute on function public.activate_license(text, text) to anon, authenticated;
-grant execute on function public.check_license(text, text) to anon, authenticated;
-grant execute on function public.is_license_admin() to authenticated;
-grant execute on function public.admin_generate_licenses(integer, integer, text, jsonb, text) to authenticated;
-grant execute on function public.admin_list_licenses() to authenticated;
-grant execute on function public.admin_set_license_status(text, text) to authenticated;
-grant execute on function public.admin_set_license_expiration(text, timestamptz) to authenticated;
