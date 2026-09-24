@@ -68,7 +68,7 @@ private struct GreegHomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
                     heroCard
                     sectionTitle("ARCHIVOS PRINCIPALES")
                     mainFilesCard
@@ -77,8 +77,8 @@ private struct GreegHomeView: View {
                     sectionTitle("REDES")
                     compactSocialCard
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
                 .padding(.bottom, 36)
             }
             .background(Color.black.ignoresSafeArea())
@@ -89,25 +89,25 @@ private struct GreegHomeView: View {
 
     private var heroCard: some View {
         GreegPanel {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 16) {
-                    AppLogo(size: 58)
-                        .shadow(color: AppTheme.accent.opacity(0.32), radius: 12)
+            VStack(alignment: .leading, spacing: 11) {
+                HStack(spacing: 12) {
+                    AppLogo(size: 48)
+                        .shadow(color: AppTheme.accent.opacity(0.28), radius: 10)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("GREEG APP")
-                            .font(.system(size: 27, weight: .black, design: .rounded))
+                            .font(.system(size: 24, weight: .black, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.68)
                         Text("Control privado")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer(minLength: 8)
 
                     Label(appState.isSupported ? "Listo" : "Revisar", systemImage: appState.isSupported ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                        .font(.subheadline.weight(.black))
+                        .font(.caption.weight(.black))
                         .foregroundColor(appState.isSupported ? .green : AppTheme.accent)
                         .labelStyle(.titleAndIcon)
                 }
@@ -125,13 +125,13 @@ private struct GreegHomeView: View {
 
     private var mainFilesCard: some View {
         GreegPanel {
-            VStack(spacing: 11) {
+            VStack(spacing: 9) {
                 Button(action: onOpenFiles) {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.right.circle.fill")
-                            .font(.title3.weight(.black))
-                        Text("Abrir archivos")
                             .font(.headline.weight(.black))
+                        Text("Abrir archivos")
+                            .font(.subheadline.weight(.black))
                         Spacer()
                     }
                     .foregroundStyle(AppTheme.accent)
@@ -140,9 +140,9 @@ private struct GreegHomeView: View {
 
                 Divider().overlay(Color.white.opacity(0.08))
 
-                HomePatchRow(icon: "scope", title: "Aimbot Drag", subtitle: "Archivo de avatar")
-                HomePatchRow(icon: "link.circle", title: "Aimbot Cuello", subtitle: "Preset integrado")
-                HomePatchRow(icon: "target", title: "Aimbot Pecho", subtitle: "Listo para aplicar")
+                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo")
+                HomePatchRow(icon: "shippingbox.fill", title: "Drag + ANTENA", subtitle: "Listo")
+                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual")
             }
         }
     }
@@ -158,8 +158,8 @@ private struct GreegHomeView: View {
                         frameSize: 38
                     )
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(remoteContentStore.installedFiles.isEmpty ? "Sincronizar archivos" : "Archivos actualizados")
-                            .font(.title3.weight(.black))
+                        Text(remoteContentStore.installedFiles.isEmpty ? "Sincronizar" : "Actualizado")
+                            .font(.headline.weight(.black))
                         Text(remoteContentStore.detailText)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -180,10 +180,10 @@ private struct GreegHomeView: View {
                     BundledPatchSeeder.seedIfNeeded()
                     remoteContentStore.syncIfPossible(force: true)
                 } label: {
-                    Label(remoteContentStore.isBusy ? "Sincronizando" : "Sincronizar archivos", systemImage: "arrow.clockwise.circle.fill")
-                        .font(.title3.weight(.black))
+                    Label(remoteContentStore.isBusy ? "Sincronizando" : "Sincronizar", systemImage: "arrow.clockwise.circle.fill")
+                        .font(.headline.weight(.black))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
+                        .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 14))
@@ -217,18 +217,31 @@ private struct GreegHomeView: View {
 private struct GreegPatchLibraryView: View {
     @EnvironmentObject private var store: PatchProjectStore
 
+    private static let displayOrder = [
+        "Pecho + ANTENA",
+        "Drag + ANTENA",
+        "Magic + ANTENA",
+        "Cuello + ANTENA",
+        "HOLO RGB",
+        "HOLO FF NORMAL PJ",
+        "Balas Magicas FF NORMAL",
+        "Aimbot Cuello FF Normal",
+        "Aimbot Pecho FF Normal"
+    ]
+
+    private static let normalizedDisplayOrder: [String] = displayOrder.map(normalize)
+
     private var visibleItems: [PatchLibraryItem] {
         store.items
             .filter { item in
                 guard let name = item.project?.name else { return false }
-                return !name.localizedCaseInsensitiveContains("only esp")
-                    && !name.localizedCaseInsensitiveContains("wallpaper")
+                return Self.normalizedDisplayOrder.contains(Self.normalize(name))
             }
             .sorted { left, right in
-                let leftRank = BundledPatchSeeder.sortRank(for: left.id)
-                let rightRank = BundledPatchSeeder.sortRank(for: right.id)
-                if leftRank != rightRank { return leftRank < rightRank }
-                return (left.project?.name ?? "").localizedCaseInsensitiveCompare(right.project?.name ?? "") == .orderedAscending
+                let leftIndex = Self.rank(for: left.project?.name)
+                let rightIndex = Self.rank(for: right.project?.name)
+                if leftIndex != rightIndex { return leftIndex < rightIndex }
+                return (left.project?.name ?? "").localizedStandardCompare(right.project?.name ?? "") == .orderedAscending
             }
     }
 
@@ -253,8 +266,8 @@ private struct GreegPatchLibraryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
                 .padding(.bottom, 36)
             }
             .background(Color.black.ignoresSafeArea())
@@ -267,17 +280,17 @@ private struct GreegPatchLibraryView: View {
     private var headerCard: some View {
         GreegPanel {
             HStack(spacing: 12) {
-                AppLogo(size: 48)
+                AppLogo(size: 40)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Centro GREEG")
-                        .font(.title2.weight(.black))
+                        .font(.headline.weight(.black))
                     Text("\(visibleItems.count) archivos privados")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.title2.weight(.bold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(.green)
             }
         }
@@ -310,6 +323,18 @@ private struct GreegPatchLibraryView: View {
         BundledPatchSeeder.seedIfNeeded()
         store.reload()
     }
+
+    private static func rank(for name: String?) -> Int {
+        let normalized = normalize(name ?? "")
+        return normalizedDisplayOrder.firstIndex(of: normalized) ?? Int.max
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
 }
 
 private struct GreegPatchRow: View {
@@ -320,12 +345,12 @@ private struct GreegPatchRow: View {
 
     var body: some View {
         GreegPanel {
-            HStack(spacing: 13) {
+            HStack(spacing: 11) {
                 AppRowIcon(
                     systemName: iconName,
                     tint: iconTint,
-                    symbolSize: 17,
-                    frameSize: 42
+                    symbolSize: 15,
+                    frameSize: 36
                 )
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -334,14 +359,14 @@ private struct GreegPatchRow: View {
                         .foregroundStyle(.white)
                         .lineLimit(2)
                     Text(isApplied ? "Activo" : "Listo para aplicar")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 8)
 
                 Image(systemName: isApplied ? "checkmark.seal.fill" : "chevron.right")
-                    .font(.headline.weight(.black))
+                    .font(.subheadline.weight(.black))
                     .foregroundStyle(isApplied ? .green : AppTheme.accent)
             }
         }
@@ -420,8 +445,8 @@ private struct GreegPatchDetailView: View {
                     action: restore
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
             .padding(.bottom, 36)
         }
         .background(Color.black.ignoresSafeArea())
@@ -444,14 +469,14 @@ private struct GreegPatchDetailView: View {
         GreegPanel {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 14) {
-                    AppRowIcon(systemName: "shippingbox.fill", tint: AppTheme.accent, symbolSize: 18, frameSize: 46)
+                    AppRowIcon(systemName: "shippingbox.fill", tint: AppTheme.accent, symbolSize: 16, frameSize: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(project?.name ?? "Archivo GREEG")
-                            .font(.system(size: 30, weight: .black, design: .rounded))
+                            .font(.system(size: 24, weight: .black, design: .rounded))
                             .lineLimit(2)
                             .minimumScaleFactor(0.75)
                         Text("Control privado")
-                            .font(.headline.weight(.semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 8)
@@ -459,16 +484,16 @@ private struct GreegPatchDetailView: View {
 
                 HStack {
                     Label(isApplied ? "Activo" : "Listo", systemImage: isApplied ? "checkmark.seal.fill" : "circle.dotted")
-                        .font(.title3.weight(.black))
+                        .font(.headline.weight(.black))
                         .foregroundStyle(isApplied ? .green : AppTheme.accent)
                     Spacer()
                     Text(isApplied ? "ON" : "OK")
-                        .font(.title3.weight(.black))
+                        .font(.headline.weight(.black))
                         .foregroundStyle(isApplied ? .green : AppTheme.accent)
                 }
                 .padding(.horizontal, 14)
-                .frame(height: 58)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(height: 48)
+                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
@@ -484,13 +509,13 @@ private struct GreegPatchDetailView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: systemImage)
-                    .font(.title2.weight(.black))
-                    .frame(width: 32)
+                    .font(.headline.weight(.black))
+                    .frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.title2.weight(.black))
+                        .font(.headline.weight(.black))
                     Text(subtitle)
-                        .font(.subheadline.weight(.bold))
+                        .font(.caption.weight(.bold))
                         .opacity(0.82)
                 }
                 Spacer()
@@ -500,13 +525,13 @@ private struct GreegPatchDetailView: View {
                 }
             }
             .foregroundColor(isPrimary ? .white : .secondary)
-            .padding(.horizontal, 18)
-            .frame(height: 72)
+            .padding(.horizontal, 16)
+            .frame(height: 58)
             .background(
-                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(isPrimary ? AppTheme.accent : Color(red: 0.07, green: 0.065, blue: 0.075))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(AppTheme.accent.opacity(isPrimary ? 0 : 0.2), lineWidth: 1)
                     )
             )
@@ -591,15 +616,15 @@ private struct GreegSocialView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Redes oficiales")
-                            .font(.system(size: 40, weight: .black, design: .rounded))
-                        Text("Canales de soporte, comunidad y actualizaciones de GREEG APP.")
-                            .font(.title3)
+                            .font(.system(size: 26, weight: .black, design: .rounded))
+                        Text("Canal privado de GREEG APP.")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.top, 34)
+                    .padding(.top, 14)
 
                     GreegPanel {
                         Link(destination: GreegSocialLink.tiktok.url) {
@@ -607,7 +632,7 @@ private struct GreegSocialView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 14)
                 .padding(.bottom, 36)
             }
             .background(Color.black.ignoresSafeArea())
@@ -656,12 +681,12 @@ private struct GreegPanel<Content: View>: View {
 
     var body: some View {
         content()
-            .padding(16)
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 17, style: .continuous)
                     .fill(Color(red: 0.09, green: 0.085, blue: 0.095))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
                             .stroke(AppTheme.accent.opacity(0.28), lineWidth: 1)
                     )
             )
@@ -675,18 +700,18 @@ private struct HomePatchRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            AppRowIcon(systemName: icon, tint: AppTheme.accent, symbolSize: 16, frameSize: 36)
+            AppRowIcon(systemName: icon, tint: AppTheme.accent, symbolSize: 14, frameSize: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(.primary)
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "checkmark.seal.fill")
-                .font(.headline.weight(.bold))
+                .font(.subheadline.weight(.bold))
                 .foregroundColor(.green)
         }
     }
@@ -699,11 +724,11 @@ private struct HomeMetric: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.title2.weight(.black))
+                .font(.headline.weight(.black))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
