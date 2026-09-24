@@ -375,6 +375,24 @@ final class RemoteContentStore: ObservableObject {
         components?.path = "/rest/v1/rpc/get_remote_content_manifest"
         guard let url = components?.url else { throw RemoteContentSyncError.badURL }
 
+        let extendedBody: [String: Any] = [
+            "p_license_key": licenseKey,
+            "p_device_id": DeviceInstallationID.current(),
+            "p_device_model": AppInfo.displayMachineName,
+            "p_ios_version": "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
+            "p_app_version": AppInfo.currentVersion
+        ]
+        let legacyBody: [String: Any] = [
+            "p_license_key": licenseKey,
+            "p_device_id": DeviceInstallationID.current()
+        ]
+
+        let manifest = try await fetchManifest(url: url, body: extendedBody, fallbackBody: legacyBody)
+        log("registros recibidos de Supabase: \(manifest.files.count); version=\(manifest.version)")
+        return manifest
+    }
+
+    private func fetchManifest(url: URL, body: [String: Any], fallbackBody: [String: Any]? = nil) async throws -> RemoteContentManifest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 25
@@ -382,31 +400,26 @@ final class RemoteContentStore: ObservableObject {
         request.setValue("Bearer \(SupabaseLicenseConfig.publishableKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "p_license_key": licenseKey,
-            "p_device_id": DeviceInstallationID.current(),
-            "p_device_model": AppInfo.displayMachineName,
-            "p_ios_version": "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
-            "p_app_version": AppInfo.currentVersion
-        ])
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw RemoteContentSyncError.badResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
-            if let rpcError = try? decoder.decode(SupabaseRPCErrorPayload.self, from: data),
-               let message = rpcError.message,
-               !message.isEmpty {
-                throw RemoteContentSyncError.server(message)
+            if let rpcError = try? decoder.decode(SupabaseRPCErrorPayload.self, from: data) {
+                if rpcError.isSchemaCacheMiss, let fallbackBody {
+                    return try await fetchManifest(url: url, body: fallbackBody)
+                }
+                if let message = rpcError.message, !message.isEmpty {
+                    throw RemoteContentSyncError.server(message)
+                }
             }
             let raw = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
             throw RemoteContentSyncError.server(raw)
         }
 
-        let manifest = try decoder.decode(RemoteContentManifest.self, from: data)
-        log("registros recibidos de Supabase: \(manifest.files.count); version=\(manifest.version)")
-        return manifest
+        return try decoder.decode(RemoteContentManifest.self, from: data)
     }
 
     private func validate(_ manifest: RemoteContentManifest) throws {
@@ -771,4 +784,20 @@ enum RemoteContentLibrary {
 
 private struct SupabaseRPCErrorPayload: Decodable {
     let message: String?
+    let details: String?
+    let hint: String?
+    let code: String?
+}
+
+private extension SupabaseRPCErrorPayload {
+    var isSchemaCacheMiss: Bool {
+        if code == "PGRST202" { return true }
+        let combined = [message, details, hint]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .lowercased()
+        return combined.contains("could not find the function")
+            || combined.contains("schema cache")
+            || combined.contains("perhaps you meant")
+    }
 }

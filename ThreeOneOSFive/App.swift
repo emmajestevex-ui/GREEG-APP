@@ -586,6 +586,22 @@ private final class SupabaseLicenseClient {
             throw SupabaseLicenseError.badURL
         }
 
+        let extendedBody: [String: Any] = [
+            "p_license_key": licenseKey,
+            "p_device_id": deviceID,
+            "p_device_model": AppInfo.displayMachineName,
+            "p_ios_version": "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
+            "p_app_version": AppInfo.currentVersion
+        ]
+        let legacyBody: [String: Any] = [
+            "p_license_key": licenseKey,
+            "p_device_id": deviceID
+        ]
+
+        return try await sendRPCRequest(url: url, body: extendedBody, fallbackBody: legacyBody)
+    }
+
+    private func sendRPCRequest(url: URL, body: [String: Any], fallbackBody: [String: Any]? = nil) async throws -> SupabaseLicenseResponse {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 25
@@ -593,13 +609,7 @@ private final class SupabaseLicenseClient {
         request.setValue("Bearer \(SupabaseLicenseConfig.publishableKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "p_license_key": licenseKey,
-            "p_device_id": deviceID,
-            "p_device_model": AppInfo.displayMachineName,
-            "p_ios_version": "\(AppInfo.osVersion) (\(AppInfo.osBuild))",
-            "p_app_version": AppInfo.currentVersion
-        ])
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
 
@@ -608,10 +618,13 @@ private final class SupabaseLicenseClient {
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            if let rpcError = try? decoder.decode(SupabaseRPCError.self, from: data),
-               let message = rpcError.message,
-               !message.isEmpty {
-                throw SupabaseLicenseError.server(message)
+            if let rpcError = try? decoder.decode(SupabaseRPCError.self, from: data) {
+                if rpcError.isSchemaCacheMiss, let fallbackBody {
+                    return try await sendRPCRequest(url: url, body: fallbackBody)
+                }
+                if let message = rpcError.message, !message.isEmpty {
+                    throw SupabaseLicenseError.server(message)
+                }
             }
 
             let raw = String(data: data, encoding: .utf8) ?? "Error HTTP \(httpResponse.statusCode)."
@@ -624,6 +637,19 @@ private final class SupabaseLicenseClient {
             let raw = String(data: data, encoding: .utf8) ?? "Respuesta vacia."
             throw SupabaseLicenseError.unreadable("Could not read the Supabase response: \(raw)")
         }
+    }
+}
+
+private extension SupabaseRPCError {
+    var isSchemaCacheMiss: Bool {
+        if code == "PGRST202" { return true }
+        let combined = [message, details, hint]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .lowercased()
+        return combined.contains("could not find the function")
+            || combined.contains("schema cache")
+            || combined.contains("perhaps you meant")
     }
 }
 
