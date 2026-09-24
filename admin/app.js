@@ -429,10 +429,6 @@ async function saveFile(event) {
     setStatus("Completa nombre y slug.");
     return;
   }
-  if (!VISIBLE_PATCH_NAMES.has(normalizedName(name))) {
-    setStatus("Usa una plantilla valida: Pecho + ANTENA, Drag + ANTENA, HOLO RGB, Balas Magicas, Aimbot Cuello o Aimbot Pecho.");
-    return;
-  }
   if (!targetPath) {
     setStatus("Completa la ruta que va a reemplazar en GREEG APP.");
     return;
@@ -914,9 +910,7 @@ async function deleteLegacyVisibleFiles() {
   const legacyFiles = state.files.filter((file) => {
     if (file.deleted_at) return false;
     const normalized = normalizedName(file.name);
-    if (LEGACY_PATCH_NAMES.has(normalized)) return true;
-    return STYLE_MARKER_PATTERN.test(String(file.description || ""))
-      && !VISIBLE_PATCH_NAMES.has(normalized);
+    return LEGACY_PATCH_NAMES.has(normalized);
   });
 
   for (const file of legacyFiles) {

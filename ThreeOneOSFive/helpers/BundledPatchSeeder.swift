@@ -116,7 +116,6 @@ enum BundledPatchSeeder {
 
     private static let payloadDirectoryName = "BundledPatchPayloads"
     private static let seedDate = Date(timeIntervalSince1970: 0)
-    private static let remotePatchCategories: Set<String> = ["aimbots", "shaders", "configs", "packages"]
     private static let assetIndexerProjectID = UUID(uuidString: "A55E0001-3105-4A55-9001-00000000BEEF")!
     private static let assetIndexerVariantKey = "greeg.assetIndexerVariant"
     private static let remoteAssetIndexerVariantPrefix = "greeg.remoteAssetIndexerVariant."
@@ -556,12 +555,17 @@ enum BundledPatchSeeder {
 
     private static func seedRemoteProjects(fileManager: FileManager) {
         let remoteFiles = standaloneRemotePatchFiles(fileManager: fileManager)
-        guard !remoteFiles.isEmpty else { return }
+        guard !remoteFiles.isEmpty else {
+            log("patch: remote records finally shown=0")
+            return
+        }
         let existingItems = PatchProjectLibrary.load(fileManager: fileManager)
+        var preparedCount = 0
 
         for file in remoteFiles {
             guard let projectID = remoteProjectID(for: file),
                   let payloadURL = RemoteContentLibrary.localFileURL(for: file, fileManager: fileManager) else {
+                log("patch: remote discarded \(file.name) reason=missing-project-id-or-local-payload")
                 continue
             }
 
@@ -573,6 +577,7 @@ enum BundledPatchSeeder {
                         fileManager: fileManager
                     )
                     log("patch: remote package \(file.name) is ready")
+                    preparedCount += 1
                     continue
                 }
 
@@ -595,10 +600,12 @@ enum BundledPatchSeeder {
                 }
                 try? PatchWorkspaceService.deleteWorkspace(projectID: projectID, fileManager: fileManager)
                 log("patch: remote patch \(project.name) is ready")
+                preparedCount += 1
             } catch {
                 log("patch: remote patch \(file.name) could not be prepared: \(error.localizedDescription)")
             }
         }
+        log("patch: remote records finally shown=\(preparedCount)")
     }
 
     private static func installRemotePatchPackage(
@@ -676,12 +683,30 @@ enum BundledPatchSeeder {
     }
 
     private static func standaloneRemotePatchFiles(fileManager: FileManager) -> [RemoteContentFile] {
-        RemoteContentLibrary.loadManifest(fileManager: fileManager)?.files.filter { file in
-            file.isAvailable
-                && remotePatchCategories.contains(file.category.lowercased())
-                && !isBuiltInRemoteFile(file)
-                && RemoteContentLibrary.localFileURL(for: file, fileManager: fileManager) != nil
-        } ?? []
+        guard let manifest = RemoteContentLibrary.loadManifest(fileManager: fileManager) else {
+            log("patch: remote records received from Supabase=0 reason=no-local-manifest")
+            return []
+        }
+
+        var visibleFiles: [RemoteContentFile] = []
+        for file in manifest.files {
+            if !file.isAvailable {
+                log("patch: remote discarded \(file.name) reason=inactive-or-deleted")
+                continue
+            }
+            if isBuiltInRemoteFile(file) {
+                log("patch: remote discarded \(file.name) reason=built-in-route")
+                continue
+            }
+            if RemoteContentLibrary.localFileURL(for: file, fileManager: fileManager) == nil {
+                log("patch: remote discarded \(file.name) reason=missing-local-payload")
+                continue
+            }
+            visibleFiles.append(file)
+        }
+
+        log("patch: remote records received from Supabase=\(manifest.files.count) candidates=\(visibleFiles.count)")
+        return visibleFiles
     }
 
     private static func remoteProjectID(for file: RemoteContentFile) -> UUID? {
@@ -689,9 +714,8 @@ enum BundledPatchSeeder {
     }
 
     private static func remoteStyleMarker(for file: RemoteContentFile) -> String {
-        guard let description = file.description else { return "" }
-        let lowercased = description.lowercased()
         let category = "[GREEG_CATEGORY:\(file.category.lowercased())]"
+        let lowercased = (file.description ?? "").lowercased()
         if lowercased.contains("[greeg_style:antena]") {
             return "[GREEG_STYLE:antena] \(category)"
         }
@@ -701,7 +725,21 @@ enum BundledPatchSeeder {
         if lowercased.contains("[greeg_style:aimbot-normal]") {
             return "[GREEG_STYLE:aimbot-normal] \(category)"
         }
-        return ""
+        return "[GREEG_STYLE:\(inferredRemoteStyle(for: file))] \(category)"
+    }
+
+    private static func inferredRemoteStyle(for file: RemoteContentFile) -> String {
+        let category = file.category.lowercased()
+        let name = file.name
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+        if category == "shaders" || name.contains("holo") {
+            return "holo"
+        }
+        if name.contains("antena") {
+            return "antena"
+        }
+        return "aimbot-normal"
     }
 
     private static func isRemotePatchPackage(_ file: RemoteContentFile) -> Bool {

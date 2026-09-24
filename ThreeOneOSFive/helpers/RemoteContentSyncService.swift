@@ -401,7 +401,9 @@ final class RemoteContentStore: ObservableObject {
             throw RemoteContentSyncError.server(raw)
         }
 
-        return try decoder.decode(RemoteContentManifest.self, from: data)
+        let manifest = try decoder.decode(RemoteContentManifest.self, from: data)
+        log("remote-content: records received from Supabase=\(manifest.files.count) version=\(manifest.version)")
+        return manifest
     }
 
     private func validate(_ manifest: RemoteContentManifest) throws {
@@ -418,6 +420,9 @@ final class RemoteContentStore: ObservableObject {
                 throw RemoteContentSyncError.invalidManifest("Remote manifest contains an invalid file.")
             }
         }
+        let availableCount = manifest.files.filter(\.isAvailable).count
+        let discardedCount = manifest.files.count - availableCount
+        log("remote-content: records discarded by availability=\(discardedCount) available=\(availableCount)")
 
         let ids = manifest.files.map(\.id)
         guard Set(ids).count == ids.count else {

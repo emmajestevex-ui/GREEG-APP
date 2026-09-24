@@ -217,7 +217,7 @@ private struct GreegHomeView: View {
 private struct GreegPatchLibraryView: View {
     @EnvironmentObject private var store: PatchProjectStore
 
-    private static let displayOrder = [
+    private static let featuredDisplayOrder = [
         "Pecho + ANTENA",
         "Drag + ANTENA",
         "Magic + ANTENA",
@@ -229,14 +229,20 @@ private struct GreegPatchLibraryView: View {
         "Aimbot Pecho FF Normal"
     ]
 
-    private static let normalizedDisplayOrder: [String] = displayOrder.map(normalize)
+    private static let normalizedFeaturedDisplayOrder: [String] = featuredDisplayOrder.map(normalize)
+    private static let hiddenLegacyNames: Set<String> = [
+        "asset indexer",
+        "shaders",
+        "144 fps",
+        "only esp ffth",
+        "aimbot drag ff max"
+    ]
 
     private var visibleItems: [PatchLibraryItem] {
         store.items
             .filter { item in
                 guard let project = item.project else { return false }
-                return Self.normalizedDisplayOrder.contains(Self.normalize(project.name))
-                    && Self.hasCurrentCategoryMarker(project)
+                return Self.shouldShow(project)
             }
             .sorted { left, right in
                 let leftIndex = Self.rank(for: left.project?.name)
@@ -342,23 +348,52 @@ private struct GreegPatchLibraryView: View {
     private func reloadPrivatePatches() {
         BundledPatchSeeder.seedIfNeeded()
         store.reload()
+        logVisiblePatchAudit(items: store.items)
     }
 
     private static func rank(for name: String?) -> Int {
         let normalized = normalize(name ?? "")
-        return normalizedDisplayOrder.firstIndex(of: normalized) ?? Int.max
+        return normalizedFeaturedDisplayOrder.firstIndex(of: normalized) ?? Int.max
     }
 
-    private static func hasCurrentCategoryMarker(_ project: PatchProject) -> Bool {
-        let author = project.author.lowercased()
-        return author.contains("[greeg_category:aimbots]")
-            || author.contains("[greeg_category:shaders]")
-            || author.contains("[greeg_category:packages]")
+    private static func shouldShow(_ project: PatchProject) -> Bool {
+        let normalizedName = normalize(project.name)
+        if hiddenLegacyNames.contains(normalizedName) { return false }
+        return true
+    }
+
+    private static func discardReason(for project: PatchProject) -> String? {
+        let normalizedName = normalize(project.name)
+        if hiddenLegacyNames.contains(normalizedName) {
+            return "legacy-hidden-name"
+        }
+        return nil
+    }
+
+    private func logVisiblePatchAudit(items: [PatchLibraryItem]) {
+        var shownCount = 0
+        var discardedCount = 0
+        log("ui-files: library records received=\(items.count)")
+        for item in items {
+            guard let project = item.project else {
+                discardedCount += 1
+                log("ui-files: discarded <missing project> reason=decode-failed")
+                continue
+            }
+            if let reason = Self.discardReason(for: project) {
+                discardedCount += 1
+                log("ui-files: discarded \(project.name) reason=\(reason)")
+            } else {
+                shownCount += 1
+            }
+        }
+        log("ui-files: records shown=\(shownCount) discarded=\(discardedCount)")
     }
 
     private static func normalize(_ value: String) -> String {
         value
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
     }
