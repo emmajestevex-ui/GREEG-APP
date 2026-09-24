@@ -96,6 +96,7 @@ struct ThreeOneOSFiveApp: App {
 
     private func prepareUnlockedApp() {
         BundledPatchSeeder.seedIfNeeded()
+        patchStore.reload()
         appState.detectSupport()
         remoteContentStore.loadLocalState()
         remoteContentStore.syncIfPossible()
