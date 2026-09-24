@@ -46,128 +46,95 @@ const VISIBLE_PATCH_NAMES = new Set([
   "aimbot cuello ff normal",
   "aimbot pecho ff normal",
 ]);
+const LEGACY_PATCH_NAMES = new Set([
+  "asset indexer",
+  "shaders",
+  "144 fps",
+  "only esp ffth",
+  "aimbot drag ff max",
+]);
 
 const PATCH_PRESETS = [
   {
-    key: "asset-indexer",
-    name: "Asset Indexer",
-    slug: "asset-indexer-ff-max",
+    key: "pecho-antena",
+    name: "Pecho + ANTENA",
+    slug: "pecho-antena",
     category: "aimbots",
-    description: "Avatar asset bundle",
-    targetBundle: FREE_FIRE_MAX_BUNDLE,
-    rules: [
-      {
-        label: ASSET_VARIANTS.pen.label,
-        slug: "asset-indexer-ff-max",
-        category: "aimbots",
-        description: "Avatar asset bundle for Free Fire Max",
-        targetBundle: ASSET_VARIANTS.pen.targetBundle,
-        targetPath: ASSET_VARIANTS.pen.targetPath,
-        assetVariant: "pen",
-      },
-      {
-        label: ASSET_VARIANTS.h5.label,
-        slug: "asset-indexer",
-        category: "aimbots",
-        description: "Avatar asset bundle for Free Fire normal",
-        targetBundle: ASSET_VARIANTS.h5.targetBundle,
-        targetPath: ASSET_VARIANTS.h5.targetPath,
-        assetVariant: "h5",
-      },
-    ],
+    description: "ANTENA",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
   },
   {
-    key: "shaders",
-    name: "Shaders",
-    slug: "shaders",
+    key: "drag-antena",
+    name: "Drag + ANTENA",
+    slug: "drag-antena",
+    category: "aimbots",
+    description: "ANTENA",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
+  },
+  {
+    key: "magic-antena",
+    name: "Magic + ANTENA",
+    slug: "magic-antena",
+    category: "aimbots",
+    description: "ANTENA",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
+  },
+  {
+    key: "cuello-antena",
+    name: "Cuello + ANTENA",
+    slug: "cuello-antena",
+    category: "aimbots",
+    description: "ANTENA",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
+  },
+  {
+    key: "holo-rgb",
+    name: "HOLO RGB",
+    slug: "holo-rgb",
     category: "shaders",
-    description: "Shader bundle",
+    description: "HOLO",
     targetBundle: DEFAULT_TARGET_BUNDLE,
-    rules: [
-      {
-        label: "Shaders - FF Normal",
-        slug: "shaders",
-        category: "shaders",
-        description: "Shader bundle for Free Fire normal",
-        targetBundle: DEFAULT_TARGET_BUNDLE,
-        targetPath: "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D",
-      },
-      {
-        label: "Shaders - FF Max",
-        slug: "shaders-ff-max",
-        category: "shaders",
-        description: "Shader bundle for Free Fire Max",
-        targetBundle: FREE_FIRE_MAX_BUNDLE,
-        targetPath: "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D",
-      },
-    ],
+    targetPath: "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D",
   },
   {
-    key: "fps-144",
-    name: "144 fps",
-    slug: "144-fps",
-    category: "configs",
-    description: "FPS preferences",
+    key: "holo-ff-normal-pj",
+    name: "HOLO FF NORMAL PJ",
+    slug: "holo-ff-normal-pj",
+    category: "shaders",
+    description: "HOLO",
     targetBundle: DEFAULT_TARGET_BUNDLE,
-    targetPath: "Library/Preferences/com.dts.freefireth.plist",
+    targetPath: "Documents/contentcache/Optional/ios/gameassetbundles/shaders.HPt9DZviTSXL9hpGW9QNOMigNLA~3D",
   },
   {
-    key: "only-esp-ffth",
-    name: "Only Esp FFTH",
-    slug: "only-esp-ffth",
+    key: "balas-magicas-ff-normal",
+    name: "Balas Magicas FF NORMAL",
+    slug: "balas-magicas-ff-normal",
     category: "aimbots",
-    description: "Only Esp patch for Free Fire TH",
+    description: "AIMBOT NORMAL",
     targetBundle: DEFAULT_TARGET_BUNDLE,
-    rules: [
-      {
-        label: "Assembly-CSharp-patch.bytes",
-        slug: "only-esp-ffth-assembly",
-        category: "aimbots",
-        description: "Assembly patch for Free Fire TH",
-        targetBundle: DEFAULT_TARGET_BUNDLE,
-        targetPath: "Documents/Assembly-CSharp-patch.bytes",
-      },
-      {
-        label: "GameBand-Fix.json",
-        slug: "only-esp-ffth-gameband",
-        category: "configs",
-        description: "GameBand fix for Free Fire TH",
-        targetBundle: DEFAULT_TARGET_BUNDLE,
-        targetPath: "Documents/GameBand-Fix.json",
-      },
-      {
-        label: "localConfig.json",
-        slug: "only-esp-ffth-config",
-        category: "configs",
-        description: "localConfig for Free Fire TH",
-        targetBundle: DEFAULT_TARGET_BUNDLE,
-        targetPath: "Documents/localConfig.json",
-      },
-    ],
+    targetPath: ASSET_VARIANTS.h5.targetPath,
   },
   {
-    key: "aimbot-drag-ff-max",
-    name: "Aimbot Drag FF Max",
-    slug: "aimbot-drag-ff-max",
+    key: "aimbot-cuello-ff-normal",
+    name: "Aimbot Cuello FF Normal",
+    slug: "aimbot-cuello-ff-normal",
     category: "aimbots",
-    description: "Patch with Assembly-CSharp-patch.bytes and localConfig.json",
-    targetBundle: FREE_FIRE_MAX_BUNDLE,
-    rules: [
-      {
-        label: "Assembly-CSharp-patch.bytes",
-        slug: "aimbot-drag-ff-max-assembly",
-        category: "aimbots",
-        description: "Assembly patch for Free Fire Max",
-        targetPath: "Documents/Assembly-CSharp-patch.bytes",
-      },
-      {
-        label: "localConfig.json",
-        slug: "aimbot-drag-ff-max-config",
-        category: "configs",
-        description: "localConfig.json for Free Fire Max",
-        targetPath: "Documents/localConfig.json",
-      },
-    ],
+    description: "AIMBOT NORMAL",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
+  },
+  {
+    key: "aimbot-pecho-ff-normal",
+    name: "Aimbot Pecho FF Normal",
+    slug: "aimbot-pecho-ff-normal",
+    category: "aimbots",
+    description: "AIMBOT NORMAL",
+    targetBundle: DEFAULT_TARGET_BUNDLE,
+    targetPath: ASSET_VARIANTS.h5.targetPath,
   },
 ];
 
@@ -462,6 +429,10 @@ async function saveFile(event) {
     setStatus("Completa nombre y slug.");
     return;
   }
+  if (!VISIBLE_PATCH_NAMES.has(normalizedName(name))) {
+    setStatus("Usa una plantilla valida: Pecho + ANTENA, Drag + ANTENA, HOLO RGB, Balas Magicas, Aimbot Cuello o Aimbot Pecho.");
+    return;
+  }
   if (!targetPath) {
     setStatus("Completa la ruta que va a reemplazar en GREEG APP.");
     return;
@@ -602,6 +573,7 @@ async function publishChanges() {
   if (!state.session || state.busy) return;
   setBusy(true, "Corrigiendo categorias...");
   try {
+    await deleteLegacyVisibleFiles();
     await normalizeStyleCategories();
     setStatus("Publicando manifest...");
     const { data, error } = await supabaseClient.rpc("admin_publish_remote_content");
@@ -933,6 +905,23 @@ async function normalizeStyleCategories() {
       p_sha256: file.sha256,
       p_storage_path: file.storage_path,
       p_force_new: false,
+    });
+    if (error) throw error;
+  }
+}
+
+async function deleteLegacyVisibleFiles() {
+  const legacyFiles = state.files.filter((file) => {
+    if (file.deleted_at) return false;
+    const normalized = normalizedName(file.name);
+    if (LEGACY_PATCH_NAMES.has(normalized)) return true;
+    return STYLE_MARKER_PATTERN.test(String(file.description || ""))
+      && !VISIBLE_PATCH_NAMES.has(normalized);
+  });
+
+  for (const file of legacyFiles) {
+    const { error } = await supabaseClient.rpc("admin_delete_remote_content_file", {
+      p_id: file.id,
     });
     if (error) throw error;
   }
