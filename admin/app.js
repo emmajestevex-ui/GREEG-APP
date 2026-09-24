@@ -3,7 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = "https://qlfugpumolehqzzuvocn.supabase.co";
 const SUPABASE_KEY = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y";
 const BUCKET = "greeg-content";
-const SCRIPT_VERSION = "20260921-greeg-isolated";
+const SCRIPT_VERSION = "20260923-greeg-aimbots-category";
 const DEFAULT_TARGET_BUNDLE = "com.dts.freefireth";
 const FREE_FIRE_MAX_BUNDLE = "com.dts.freefiremax";
 const ASSET_INDEXER_DIRECTORY = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar";
@@ -41,14 +41,14 @@ const PATCH_PRESETS = [
     key: "asset-indexer",
     name: "Asset Indexer",
     slug: "asset-indexer-ff-max",
-    category: "patches",
+    category: "aimbots",
     description: "Avatar asset bundle",
     targetBundle: FREE_FIRE_MAX_BUNDLE,
     rules: [
       {
         label: ASSET_VARIANTS.pen.label,
         slug: "asset-indexer-ff-max",
-        category: "patches",
+        category: "aimbots",
         description: "Avatar asset bundle for Free Fire Max",
         targetBundle: ASSET_VARIANTS.pen.targetBundle,
         targetPath: ASSET_VARIANTS.pen.targetPath,
@@ -57,7 +57,7 @@ const PATCH_PRESETS = [
       {
         label: ASSET_VARIANTS.h5.label,
         slug: "asset-indexer",
-        category: "patches",
+        category: "aimbots",
         description: "Avatar asset bundle for Free Fire normal",
         targetBundle: ASSET_VARIANTS.h5.targetBundle,
         targetPath: ASSET_VARIANTS.h5.targetPath,
@@ -104,14 +104,14 @@ const PATCH_PRESETS = [
     key: "only-esp-ffth",
     name: "Only Esp FFTH",
     slug: "only-esp-ffth",
-    category: "patches",
+    category: "aimbots",
     description: "Only Esp patch for Free Fire TH",
     targetBundle: DEFAULT_TARGET_BUNDLE,
     rules: [
       {
         label: "Assembly-CSharp-patch.bytes",
         slug: "only-esp-ffth-assembly",
-        category: "patches",
+        category: "aimbots",
         description: "Assembly patch for Free Fire TH",
         targetBundle: DEFAULT_TARGET_BUNDLE,
         targetPath: "Documents/Assembly-CSharp-patch.bytes",
@@ -138,14 +138,14 @@ const PATCH_PRESETS = [
     key: "aimbot-drag-ff-max",
     name: "Aimbot Drag FF Max",
     slug: "aimbot-drag-ff-max",
-    category: "patches",
+    category: "aimbots",
     description: "Patch with Assembly-CSharp-patch.bytes and localConfig.json",
     targetBundle: FREE_FIRE_MAX_BUNDLE,
     rules: [
       {
         label: "Assembly-CSharp-patch.bytes",
         slug: "aimbot-drag-ff-max-assembly",
-        category: "patches",
+        category: "aimbots",
         description: "Assembly patch for Free Fire Max",
         targetPath: "Documents/Assembly-CSharp-patch.bytes",
       },
@@ -670,7 +670,7 @@ function applyAssetVariant(value) {
   els.targetBundleInput.value = safeTargetBundle(variant.targetBundle);
   els.targetPathInput.value = safeRelativePath(variant.targetPath);
   els.targetPathInput.dataset.touched = "true";
-  els.categoryInput.value = "patches";
+  els.categoryInput.value = "aimbots";
   updateAssetVariantVisibility();
 }
 
