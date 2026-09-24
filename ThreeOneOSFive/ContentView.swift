@@ -245,6 +245,13 @@ private struct GreegPatchLibraryView: View {
             }
     }
 
+    private var groupedItems: [GreegPatchSection] {
+        GreegPatchKind.allCases.compactMap { kind in
+            let items = visibleItems.filter { kind == GreegPatchKind(name: $0.project?.name ?? "") }
+            return items.isEmpty ? nil : GreegPatchSection(kind: kind, items: items)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -254,14 +261,26 @@ private struct GreegPatchLibraryView: View {
                     if visibleItems.isEmpty {
                         emptyCard
                     } else {
-                        VStack(spacing: 10) {
-                            ForEach(visibleItems) { item in
-                                NavigationLink {
-                                    GreegPatchDetailView(projectID: item.id)
-                                } label: {
-                                    GreegPatchRow(item: item)
+                        VStack(alignment: .leading, spacing: 14) {
+                            ForEach(groupedItems) { section in
+                                VStack(alignment: .leading, spacing: 9) {
+                                    Text(section.kind.sectionTitle)
+                                        .font(.caption.weight(.black))
+                                        .foregroundStyle(section.kind.tint)
+                                        .tracking(1.1)
+                                        .padding(.leading, 4)
+
+                                    VStack(spacing: 9) {
+                                        ForEach(section.items) { item in
+                                            NavigationLink {
+                                                GreegPatchDetailView(projectID: item.id)
+                                            } label: {
+                                                GreegPatchRow(item: item)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -337,18 +356,77 @@ private struct GreegPatchLibraryView: View {
     }
 }
 
+private struct GreegPatchSection: Identifiable {
+    let kind: GreegPatchKind
+    let items: [PatchLibraryItem]
+
+    var id: String { kind.id }
+}
+
+private enum GreegPatchKind: String, CaseIterable, Identifiable {
+    case antena
+    case holo
+    case aimbotNormal
+
+    var id: String { rawValue }
+
+    init(name: String) {
+        let normalized = name
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+        if normalized.contains("antena") {
+            self = .antena
+        } else if normalized.contains("holo") {
+            self = .holo
+        } else {
+            self = .aimbotNormal
+        }
+    }
+
+    var sectionTitle: String {
+        switch self {
+        case .antena: return "ANTENA"
+        case .holo: return "HOLO"
+        case .aimbotNormal: return "AIMBOT NORMAL"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .antena:
+            return AppTheme.accent
+        case .holo:
+            return Color(red: 0.19, green: 0.84, blue: 0.38)
+        case .aimbotNormal:
+            return Color(red: 1.0, green: 0.78, blue: 0.16)
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .antena:
+            return "antenna.radiowaves.left.and.right"
+        case .holo:
+            return "sparkles"
+        case .aimbotNormal:
+            return "scope"
+        }
+    }
+}
+
 private struct GreegPatchRow: View {
     let item: PatchLibraryItem
 
     private var project: PatchProject? { item.project }
     private var isApplied: Bool { DevicePatchService.latestReceipt(projectID: item.id) != nil }
+    private var kind: GreegPatchKind { GreegPatchKind(name: project?.name ?? "") }
 
     var body: some View {
         GreegPanel {
             HStack(spacing: 11) {
                 AppRowIcon(
                     systemName: iconName,
-                    tint: iconTint,
+                    tint: kind.tint,
                     symbolSize: 15,
                     frameSize: 36
                 )
@@ -367,30 +445,20 @@ private struct GreegPatchRow: View {
 
                 Image(systemName: isApplied ? "checkmark.seal.fill" : "chevron.right")
                     .font(.subheadline.weight(.black))
-                    .foregroundStyle(isApplied ? .green : AppTheme.accent)
+                    .foregroundStyle(isApplied ? .green : kind.tint)
             }
         }
     }
 
     private var iconName: String {
         let name = (project?.name ?? "Archivo GREEG").lowercased()
-        if name.contains("holo") || name.contains("visual") || name.contains("shader") {
-            return "sparkles"
-        }
-        if name.contains("fps") {
-            return "speedometer"
-        }
         if name.contains("cuello") {
             return "link.circle.fill"
         }
         if name.contains("pecho") {
             return "target"
         }
-        return "shippingbox.fill"
-    }
-
-    private var iconTint: Color {
-        iconName == "sparkles" ? Color(red: 0.27, green: 0.71, blue: 1) : AppTheme.accent
+        return kind.iconName
     }
 }
 
@@ -414,6 +482,10 @@ private struct GreegPatchDetailView: View {
 
     private var isApplied: Bool {
         receipt != nil
+    }
+
+    private var kind: GreegPatchKind {
+        GreegPatchKind(name: project?.name ?? "")
     }
 
     var body: some View {
@@ -469,7 +541,7 @@ private struct GreegPatchDetailView: View {
         GreegPanel {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 14) {
-                    AppRowIcon(systemName: "shippingbox.fill", tint: AppTheme.accent, symbolSize: 16, frameSize: 40)
+                    AppRowIcon(systemName: kind.iconName, tint: kind.tint, symbolSize: 16, frameSize: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(project?.name ?? "Archivo GREEG")
                             .font(.system(size: 24, weight: .black, design: .rounded))
@@ -485,11 +557,11 @@ private struct GreegPatchDetailView: View {
                 HStack {
                     Label(isApplied ? "Activo" : "Listo", systemImage: isApplied ? "checkmark.seal.fill" : "circle.dotted")
                         .font(.headline.weight(.black))
-                        .foregroundStyle(isApplied ? .green : AppTheme.accent)
+                        .foregroundStyle(isApplied ? .green : kind.tint)
                     Spacer()
                     Text(isApplied ? "ON" : "OK")
                         .font(.headline.weight(.black))
-                        .foregroundStyle(isApplied ? .green : AppTheme.accent)
+                        .foregroundStyle(isApplied ? .green : kind.tint)
                 }
                 .padding(.horizontal, 14)
                 .frame(height: 48)
