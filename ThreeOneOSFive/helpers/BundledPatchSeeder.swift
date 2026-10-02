@@ -490,7 +490,14 @@ enum BundledPatchSeeder {
     }
 
     private static func seedRemoteProjects(fileManager: FileManager) {
+        guard RemoteContentLibrary.loadManifest(fileManager: fileManager) != nil else {
+            log("patch: remote records finally shown=0")
+            return
+        }
+
         let remoteFiles = standaloneRemotePatchFiles(fileManager: fileManager)
+        removeObsoleteRemoteProjects(activeRemoteFiles: remoteFiles, fileManager: fileManager)
+
         guard !remoteFiles.isEmpty else {
             log("patch: remote records finally shown=0")
             return
@@ -542,6 +549,30 @@ enum BundledPatchSeeder {
             }
         }
         log("patch: remote records finally shown=\(preparedCount)")
+    }
+
+    private static func removeObsoleteRemoteProjects(
+        activeRemoteFiles: [RemoteContentFile],
+        fileManager: FileManager
+    ) {
+        let activeRemoteIDs = Set(activeRemoteFiles.compactMap(remoteProjectID))
+        let activeBuiltInIDs = Set(activeProjects.map(\.id)).union(bundledPackages.map(\.id))
+
+        for item in PatchProjectLibrary.load(fileManager: fileManager) {
+            guard let project = item.project,
+                  isRemoteManagedProject(project),
+                  !activeRemoteIDs.contains(item.id),
+                  !activeBuiltInIDs.contains(item.id) else {
+                continue
+            }
+
+            do {
+                try PatchProjectLibrary.delete(item, fileManager: fileManager)
+                log("patch: removed obsolete remote patch \(project.name)")
+            } catch {
+                log("patch: obsolete remote patch \(project.name) could not be removed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private static func installRemotePatchPackage(
@@ -663,6 +694,12 @@ enum BundledPatchSeeder {
             return "[GREEG_STYLE:aimbot-normal] \(category)"
         }
         return category
+    }
+
+    static func isRemoteManagedProject(_ project: PatchProject) -> Bool {
+        let author = project.author.lowercased()
+        return author.contains("[greeg_category:")
+            || author.contains("[greeg_style:")
     }
 
     private static func isRemotePatchPackage(_ file: RemoteContentFile) -> Bool {

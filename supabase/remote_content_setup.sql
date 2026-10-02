@@ -691,9 +691,7 @@ begin
         '[]'::jsonb
     )
     into v_files
-    from public.remote_content_files f
-    where f.is_active = true
-      and f.deleted_at is null;
+    from public.remote_content_files f;
 
     v_manifest := jsonb_build_object(
         'success', true,

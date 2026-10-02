@@ -63,6 +63,7 @@ private struct CompactTabLabel: View {
 private struct GreegHomeView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var remoteContentStore: RemoteContentStore
+    @EnvironmentObject private var store: PatchProjectStore
     let onOpenFiles: () -> Void
 
     var body: some View {
@@ -83,7 +84,13 @@ private struct GreegHomeView: View {
             }
             .background(Color.black.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { remoteContentStore.loadLocalState() }
+            .onAppear {
+                remoteContentStore.loadLocalState()
+                store.reload()
+            }
+            .onChange(of: remoteContentStore.remoteVersion) { _ in
+                store.reload()
+            }
         }
     }
 
@@ -140,11 +147,33 @@ private struct GreegHomeView: View {
 
                 Divider().overlay(Color.white.opacity(0.08))
 
-                HomePatchRow(icon: "target", title: "Pecho + ANTENA", subtitle: "Listo", tint: GreegPatchStyle.antena.tint)
-                HomePatchRow(icon: "sparkles", title: "HOLO RGB", subtitle: "Visual", tint: GreegPatchStyle.holo.tint)
-                HomePatchRow(icon: "scope", title: "Aimbots", subtitle: "Normales", tint: GreegPatchStyle.aimbotNormal.tint)
+                if homePreviewProjects.isEmpty {
+                    HomePatchRow(icon: "shippingbox.fill", title: "Sin archivos", subtitle: "Sincroniza para cargar", tint: AppTheme.accent)
+                } else {
+                    ForEach(homePreviewProjects.prefix(3), id: \.id) { project in
+                        let kind = GreegPatchKind(project: project)
+                        HomePatchRow(
+                            icon: kind.iconName,
+                            title: project.name,
+                            subtitle: "Listo",
+                            tint: kind.tint
+                        )
+                    }
+                }
             }
         }
+    }
+
+    private var homePreviewProjects: [PatchProject] {
+        store.items
+            .compactMap(\.project)
+            .filter(GreegPatchLibraryView.shouldShow)
+            .sorted { left, right in
+                let leftKind = GreegPatchKind(project: left)
+                let rightKind = GreegPatchKind(project: right)
+                if leftKind.rank != rightKind.rank { return leftKind.rank < rightKind.rank }
+                return left.name.localizedStandardCompare(right.name) == .orderedAscending
+            }
     }
 
     private var updatesCard: some View {
@@ -357,8 +386,9 @@ private struct GreegPatchLibraryView: View {
         return normalizedFeaturedDisplayOrder.firstIndex(of: normalized) ?? Int.max
     }
 
-    private static func shouldShow(_ project: PatchProject) -> Bool {
+    fileprivate static func shouldShow(_ project: PatchProject) -> Bool {
         isGreegManaged(project)
+            && BundledPatchSeeder.projectIDs.contains(project.id)
             && (!project.rules.isEmpty || !project.directories.isEmpty)
     }
 
