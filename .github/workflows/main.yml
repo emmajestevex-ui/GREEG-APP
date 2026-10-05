@@ -89,3 +89,17 @@ jobs:
           path: GREEG_ADMIN_panel.zip
           if-no-files-found: error
           retention-days: 30
+
+      - name: Empaquetar panel de keys
+        run: |
+          set -euo pipefail
+          zip -r GREEG_KEYS_panel.zip admin supabase/licenses_setup.sql supabase/admin_emails_setup.sql
+          ls -lh GREEG_KEYS_panel.zip
+
+      - name: Subir panel de keys
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREEG-keys-panel
+          path: GREEG_KEYS_panel.zip
+          if-no-files-found: error
+          retention-days: 30
