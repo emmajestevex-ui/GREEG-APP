@@ -493,6 +493,46 @@ textarea:focus {
   color: var(--warning);
 }
 
+.keyCreateForm {
+  margin: 18px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(8, 12, 18, 0.54);
+}
+
+.keyCreateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkLabel {
+  display: inline-flex !important;
+  align-items: center;
+  flex-direction: row !important;
+  gap: 10px;
+}
+
+.checkLabel input {
+  width: auto;
+}
+
+.generatedKeysBlock {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.generatedKeysBlock h3 {
+  margin: 0;
+}
+
+.generatedKeysBlock textarea {
+  resize: vertical;
+}
+
 @media (max-width: 820px) {
   h1 {
     font-size: 34px;
@@ -523,6 +563,10 @@ textarea:focus {
 
   .toolbar input {
     max-width: none;
+  }
+
+  .keyCreateGrid {
+    grid-template-columns: 1fr;
   }
 
   .fileSide {

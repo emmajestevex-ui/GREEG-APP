@@ -192,6 +192,17 @@ const els = {
   keysStatusText: $("#keysStatusText"),
   keyList: $("#keyList"),
   keyTemplate: $("#keyTemplate"),
+  keyForm: $("#keyForm"),
+  keyQuantityInput: $("#keyQuantityInput"),
+  keyDurationInput: $("#keyDurationInput"),
+  keyDurationUnitInput: $("#keyDurationUnitInput"),
+  keyLabelInput: $("#keyLabelInput"),
+  customKeyInput: $("#customKeyInput"),
+  specialAssetIndexerInput: $("#specialAssetIndexerInput"),
+  createKeysButton: $("#createKeysButton"),
+  generatedKeysBlock: $("#generatedKeysBlock"),
+  generatedKeysOutput: $("#generatedKeysOutput"),
+  copyGeneratedKeysButton: $("#copyGeneratedKeysButton"),
 };
 
 init();
@@ -234,6 +245,10 @@ function bindEvents() {
   els.searchInput.addEventListener("input", renderFiles);
   els.refreshKeysButton.addEventListener("click", loadKeys);
   els.keySearchInput.addEventListener("input", renderKeys);
+  els.keyForm.addEventListener("submit", createKeys);
+  els.copyGeneratedKeysButton.addEventListener("click", copyGeneratedKeys);
+  els.keyDurationUnitInput.addEventListener("change", syncDurationInput);
+  els.customKeyInput.addEventListener("input", syncCustomKeyQuantity);
   els.nameInput.addEventListener("input", () => {
     if (!els.editingId.value && !els.slugInput.dataset.touched) {
       els.slugInput.value = safeSlug(els.nameInput.value);
@@ -258,6 +273,7 @@ function bindEvents() {
     updateAssetVariantVisibility();
   });
   renderPresets();
+  syncDurationInput();
 }
 
 async function signIn(event) {
@@ -430,6 +446,74 @@ async function loadKeys() {
   state.licenses = data ?? [];
   els.keysStatusText.textContent = "Keys cargadas. La activacion se valida en Supabase.";
   renderKeys();
+}
+
+async function createKeys(event) {
+  event.preventDefault();
+  const customKey = els.customKeyInput.value.trim().toUpperCase();
+  const quantity = customKey ? 1 : clampNumber(els.keyQuantityInput.value, 1, 200);
+  const durationHours = durationToHours(els.keyDurationInput.value, els.keyDurationUnitInput.value);
+  const label = els.keyLabelInput.value.trim();
+  const capabilities = els.specialAssetIndexerInput.checked ? ["special_assetindexer"] : [];
+
+  if (customKey && !customKey.startsWith("GREEG-")) {
+    els.keysStatusText.textContent = "La key personalizada debe empezar con GREEG-.";
+    return;
+  }
+
+  els.createKeysButton.disabled = true;
+  els.keysStatusText.textContent = "Creando keys en Supabase...";
+  try {
+    const { data, error } = await supabaseClient.rpc("admin_generate_licenses", {
+      p_quantity: quantity,
+      p_duration_hours: durationHours,
+      p_label: label || null,
+      p_capabilities: capabilities,
+      p_custom_license_key: customKey || null,
+    });
+    if (error || data?.success === false) {
+      throw error || new Error(data?.message || "No se pudieron crear las keys.");
+    }
+
+    const keys = Array.isArray(data?.keys) ? data.keys : [];
+    els.generatedKeysOutput.value = keys.join("\n");
+    els.generatedKeysBlock.classList.toggle("hidden", keys.length === 0);
+    els.keysStatusText.textContent = `${keys.length} ${keys.length === 1 ? "key creada" : "keys creadas"} en Supabase.`;
+    els.customKeyInput.value = "";
+    await loadKeys();
+  } catch (error) {
+    els.keysStatusText.textContent = adminErrorMessage(error);
+  } finally {
+    els.createKeysButton.disabled = false;
+  }
+}
+
+async function copyGeneratedKeys() {
+  const value = els.generatedKeysOutput.value.trim();
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    els.keysStatusText.textContent = "Keys copiadas.";
+  } catch {
+    els.generatedKeysOutput.select();
+    document.execCommand("copy");
+    els.keysStatusText.textContent = "Keys copiadas.";
+  }
+}
+
+function syncDurationInput() {
+  const lifetime = els.keyDurationUnitInput.value === "lifetime";
+  els.keyDurationInput.disabled = lifetime;
+  if (lifetime) els.keyDurationInput.value = "0";
+}
+
+function syncCustomKeyQuantity() {
+  if (els.customKeyInput.value.trim()) {
+    els.keyQuantityInput.value = "1";
+    els.keyQuantityInput.disabled = true;
+  } else {
+    els.keyQuantityInput.disabled = false;
+  }
 }
 
 async function saveFile(event) {
@@ -1180,6 +1264,29 @@ function formatDate(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function clampNumber(value, min, max) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function durationToHours(value, unit) {
+  if (unit === "lifetime") return null;
+  const amount = clampNumber(value, 0, 10000);
+  if (amount <= 0) return null;
+  switch (unit) {
+    case "months":
+      return amount * 24 * 30;
+    case "weeks":
+      return amount * 24 * 7;
+    case "days":
+      return amount * 24;
+    case "hours":
+    default:
+      return amount;
+  }
 }
 
 function fallbackTargetPath(file) {

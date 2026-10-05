@@ -165,6 +165,48 @@
             </div>
           </div>
 
+          <form id="keyForm" class="form keyCreateForm">
+            <div class="keyCreateGrid">
+              <label>
+                Cantidad
+                <input id="keyQuantityInput" type="number" min="1" max="200" value="1" required />
+              </label>
+              <label>
+                Duracion
+                <input id="keyDurationInput" type="number" min="0" value="0" />
+              </label>
+              <label>
+                Unidad
+                <select id="keyDurationUnitInput">
+                  <option value="lifetime">Sin vencimiento</option>
+                  <option value="hours">Horas</option>
+                  <option value="days">Dias</option>
+                  <option value="weeks">Semanas</option>
+                  <option value="months">Meses</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Nota
+              <input id="keyLabelInput" type="text" maxlength="80" placeholder="Cliente o nota interna" />
+            </label>
+            <label>
+              Key personalizada
+              <input id="customKeyInput" type="text" maxlength="80" placeholder="Opcional: GREEG-CLIENTE-001" />
+              <span class="fieldHint">Si escribes una key personalizada, la cantidad debe ser 1.</span>
+            </label>
+            <label class="checkLabel">
+              <input id="specialAssetIndexerInput" type="checkbox" />
+              Acceso especial Asset Indexer
+            </label>
+            <button id="createKeysButton" class="primary" type="submit">Crear keys</button>
+            <div id="generatedKeysBlock" class="generatedKeysBlock hidden">
+              <h3>Keys creadas</h3>
+              <textarea id="generatedKeysOutput" rows="4" readonly></textarea>
+              <button id="copyGeneratedKeysButton" class="ghost" type="button">Copiar keys</button>
+            </div>
+          </form>
+
           <div class="toolbar">
             <input id="keySearchInput" type="search" placeholder="Buscar key, dispositivo o IP..." />
             <span id="keyCounter" class="counter">0 keys</span>
