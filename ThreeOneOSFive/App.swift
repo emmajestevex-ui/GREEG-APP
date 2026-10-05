@@ -436,8 +436,8 @@ private struct GreegLicenseView: View {
 }
 
 enum SupabaseLicenseConfig {
-    static let projectURL = URL(string: "https://qlfugpumolehqzzuvocn.supabase.co")!
-    static let publishableKey = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y"
+    static let projectURL = URL(string: "https://oqpgabogasnxjejgakrt.supabase.co")!
+    static let publishableKey = "sb_publishable_yL2R4NnUAO5SBP04edbPrg_zWpPFA31"
 }
 
 enum LicenseEntitlements {

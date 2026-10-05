@@ -18,6 +18,7 @@ set search_path = public
 as $$
     select
         lower(coalesce(auth.jwt() ->> 'email', '')) in (
+            'ysiemmanuel9@gmail.com',
             '2008yashirchavez@gmail.com',
             'emmajestevex@gmail.com',
             'grego23500@gmail.com'
@@ -33,6 +34,7 @@ insert into public.license_admins (user_id, role)
 select id, 'founder'
 from auth.users
 where lower(email) in (
+    'ysiemmanuel9@gmail.com',
     '2008yashirchavez@gmail.com',
     'emmajestevex@gmail.com',
     'grego23500@gmail.com'

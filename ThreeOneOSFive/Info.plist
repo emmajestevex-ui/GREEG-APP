@@ -29,6 +29,7 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>App-Prefs</string>
+		<string>shareddocuments</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>greeg app does not need photo access for the bundled patch flow.</string>

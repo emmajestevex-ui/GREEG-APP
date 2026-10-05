@@ -1,9 +1,9 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const SUPABASE_URL = "https://qlfugpumolehqzzuvocn.supabase.co";
-const SUPABASE_KEY = "sb_publishable_EAsMdYoIsenDI9ZYxKMcFA_3nuPXW5y";
+const SUPABASE_URL = "https://oqpgabogasnxjejgakrt.supabase.co";
+const SUPABASE_KEY = "sb_publishable_yL2R4NnUAO5SBP04edbPrg_zWpPFA31";
 const BUCKET = "greeg-content";
-const SCRIPT_VERSION = "20260924-delete-keys";
+const SCRIPT_VERSION = "20261005-ios27-install";
 const DEFAULT_TARGET_BUNDLE = "com.dts.freefireth";
 const FREE_FIRE_MAX_BUNDLE = "com.dts.freefiremax";
 const ASSET_INDEXER_DIRECTORY = "Documents/contentcache/Compulsory/ios/gameassetbundles/avatar";
@@ -1134,6 +1134,7 @@ function adminErrorMessage(error) {
 
 function isAllowedAdminEmail(email) {
   return [
+    "ysiemmanuel9@gmail.com",
     "2008yashirchavez@gmail.com",
     "emmajestevex@gmail.com",
     "grego23500@gmail.com",

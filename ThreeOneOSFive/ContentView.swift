@@ -19,6 +19,10 @@ struct ContentView: View {
                 .tabItem { CompactTabLabel(title: "Archivos", systemImage: "shippingbox.fill") }
                 .tag(AppSection.archivos.rawValue)
 
+            GreegInstallationView()
+                .tabItem { CompactTabLabel(title: "Instalación", systemImage: "wrench.and.screwdriver.fill") }
+                .tag(AppSection.instalacion.rawValue)
+
             GreegSocialView()
                 .tabItem { CompactTabLabel(title: "Redes", systemImage: "link.circle.fill") }
                 .tag(AppSection.redes.rawValue)
@@ -836,6 +840,158 @@ private struct GreegPatchActionAlert: Identifiable {
     let id = UUID()
     let title: String
     let message: String
+}
+
+private struct GreegInstallationView: View {
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Instalación iOS 27")
+                            .font(.system(size: 26, weight: .black, design: .rounded))
+                        Text("Accesos rápidos para preparar VPN, Developer Mode y pairing.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 14)
+
+                    GreegPanel {
+                        HStack(spacing: 12) {
+                            AppLogo(size: 52)
+                                .shadow(color: AppTheme.accent.opacity(0.24), radius: 10)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("GREEG APP")
+                                    .font(.title2.weight(.black))
+                                Text("Sigue el orden y vuelve a la app cuando termines cada paso.")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    installationCard(
+                        number: "1",
+                        title: "Instalar IPA",
+                        subtitle: "Abre el archivo desde Archivos y confirma Instalar cuando iOS lo pida.",
+                        icon: "square.and.arrow.down.fill"
+                    )
+
+                    installationCard(
+                        number: "2",
+                        title: "Descargar VPN",
+                        subtitle: "Instala LocalDevVPN desde App Store antes de iniciar el pairing.",
+                        icon: "network",
+                        buttonTitle: "Descargar VPN",
+                        action: { open("https://apps.apple.com/search?term=LocalDevVPN") }
+                    )
+
+                    installationCard(
+                        number: "3",
+                        title: "Activar VPN",
+                        subtitle: "Abre Ajustes de VPN, permite la configuracion y vuelve a GREEG APP.",
+                        icon: "lock.shield.fill",
+                        buttonTitle: "Abrir VPN",
+                        action: { open("App-Prefs:root=General&path=VPN") }
+                    )
+
+                    installationCard(
+                        number: "4",
+                        title: "Developer Mode",
+                        subtitle: "Activa Developer Mode desde Privacidad y Seguridad si tu iPhone lo muestra.",
+                        icon: "iphone.gen3.badge.play",
+                        buttonTitle: "Abrir Ajustes",
+                        action: { open("App-Prefs:root=Privacy&path=DEVELOPER_MODE") }
+                    )
+
+                    installationCard(
+                        number: "5",
+                        title: "Código de pairing",
+                        subtitle: "Usa el codigo que aparece en el iPhone durante el pairing. Esta app solo te guia; no lee datos privados.",
+                        icon: "number.square.fill"
+                    )
+
+                    installationCard(
+                        number: "6",
+                        title: "Pairing file",
+                        subtitle: "Importa el archivo de pairing desde Archivos cuando ya lo tengas listo.",
+                        icon: "doc.badge.gearshape.fill",
+                        buttonTitle: "Abrir Archivos",
+                        action: { open("shareddocuments://") }
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 36)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Instalación")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func installationCard(
+        number: String,
+        title: String,
+        subtitle: String,
+        icon: String,
+        buttonTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        GreegPanel {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(AppTheme.accent.opacity(0.16))
+                        Text(number)
+                            .font(.headline.weight(.black))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    .frame(width: 42, height: 42)
+
+                    AppRowIcon(systemName: icon, tint: AppTheme.accent, symbolSize: 16, frameSize: 42)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.headline.weight(.black))
+                            .foregroundStyle(.primary)
+                        Text(subtitle)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                if let buttonTitle, let action {
+                    Button(action: action) {
+                        HStack {
+                            Text(buttonTitle)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .font(.subheadline.weight(.black))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AppTheme.accent)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func open(_ value: String) {
+        guard let url = URL(string: value) else { return }
+        openURL(url)
+    }
 }
 
 private struct GreegSocialView: View {
