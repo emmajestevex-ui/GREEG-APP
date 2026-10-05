@@ -943,7 +943,7 @@ private struct GreegInstallationView: View {
 
     private func settingsSection<Content: View>(
         _ title: String,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
