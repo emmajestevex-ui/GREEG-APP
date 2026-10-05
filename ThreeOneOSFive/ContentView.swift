@@ -848,80 +848,89 @@ private struct GreegInstallationView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Instalación iOS 27")
-                            .font(.system(size: 26, weight: .black, design: .rounded))
-                        Text("Accesos rápidos para preparar VPN, Developer Mode y pairing.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Spacer()
+                        Text("Configuración")
+                            .font(.headline.weight(.black))
+                        Spacer()
                     }
                     .padding(.top, 14)
 
-                    GreegPanel {
-                        HStack(spacing: 12) {
-                            AppLogo(size: 52)
-                                .shadow(color: AppTheme.accent.opacity(0.24), radius: 10)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("GREEG APP")
-                                    .font(.title2.weight(.black))
-                                Text("Sigue el orden y vuelve a la app cuando termines cada paso.")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                        }
+                    settingsSection("Information") {
+                        statusRow("Current version", value: "Supported", valueColor: .green)
+                        divider
+                        statusRow("Hardware model", value: UIDevice.current.model)
+                        divider
+                        statusRow("iOS Version", value: UIDevice.current.systemVersion)
                     }
 
-                    installationCard(
-                        number: "1",
-                        title: "Instalar IPA",
-                        subtitle: "Abre el archivo desde Archivos y confirma Instalar cuando iOS lo pida.",
-                        icon: "square.and.arrow.down.fill"
-                    )
+                    settingsSection("Connection") {
+                        statusRow("Tunnel connection", value: "Not connected")
+                        divider
+                        statusRow("Pairing", value: "Not configured")
+                        divider
+                        actionRow(
+                            title: "Permitir configuración",
+                            subtitle: "Cuando iOS pregunte por red local o configuracion, toca Permitir.",
+                            icon: "hand.tap.fill",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Abrir permisos",
+                            action: { open(UIApplication.openSettingsURLString) }
+                        )
+                        divider
+                        actionRow(
+                            title: "VPN",
+                            subtitle: "Instala LocalDevVPN y abre Ajustes de VPN para permitir la conexion.",
+                            icon: "network",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Descargar VPN",
+                            action: { open("https://apps.apple.com/search?term=LocalDevVPN") }
+                        )
+                        divider
+                        actionRow(
+                            title: "Abrir VPN en Ajustes",
+                            subtitle: "Entra aqui para activar o revisar el tunel.",
+                            icon: "lock.shield.fill",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Abrir VPN",
+                            action: { open("App-Prefs:root=General&path=VPN") }
+                        )
+                    }
 
-                    installationCard(
-                        number: "2",
-                        title: "Descargar VPN",
-                        subtitle: "Instala LocalDevVPN desde App Store antes de iniciar el pairing.",
-                        icon: "network",
-                        buttonTitle: "Descargar VPN",
-                        action: { open("https://apps.apple.com/search?term=LocalDevVPN") }
-                    )
+                    settingsSection("Developer Mode") {
+                        actionRow(
+                            title: "Entrar al modo desarrollador",
+                            subtitle: "Abre Developer Mode y confirma Pair with 3105 cuando aparezca.",
+                            icon: "iphone.gen3.badge.play",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Abrir",
+                            action: { open("App-Prefs:root=Privacy&path=DEVELOPER_MODE") }
+                        )
+                        divider
+                        actionRow(
+                            title: "Pair on this iPhone",
+                            subtitle: "Empieza el pairing y escribe el codigo de 6 digitos que muestre iOS.",
+                            icon: "link.badge.plus",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Modo desarrollador",
+                            action: { open("App-Prefs:root=Privacy&path=DEVELOPER_MODE") }
+                        )
+                        divider
+                        actionRow(
+                            title: "Import pairing file",
+                            subtitle: "Si ya tienes el archivo de pairing, importalo desde Archivos.",
+                            icon: "square.and.arrow.down",
+                            tint: AppTheme.accent,
+                            buttonTitle: "Abrir Archivos",
+                            action: { open("shareddocuments://") }
+                        )
+                    }
 
-                    installationCard(
-                        number: "3",
-                        title: "Activar VPN",
-                        subtitle: "Abre Ajustes de VPN, permite la configuracion y vuelve a GREEG APP.",
-                        icon: "lock.shield.fill",
-                        buttonTitle: "Abrir VPN",
-                        action: { open("App-Prefs:root=General&path=VPN") }
-                    )
-
-                    installationCard(
-                        number: "4",
-                        title: "Developer Mode",
-                        subtitle: "Activa Developer Mode desde Privacidad y Seguridad si tu iPhone lo muestra.",
-                        icon: "iphone.gen3.badge.play",
-                        buttonTitle: "Abrir Ajustes",
-                        action: { open("App-Prefs:root=Privacy&path=DEVELOPER_MODE") }
-                    )
-
-                    installationCard(
-                        number: "5",
-                        title: "Código de pairing",
-                        subtitle: "Usa el codigo que aparece en el iPhone durante el pairing. Esta app solo te guia; no lee datos privados.",
-                        icon: "number.square.fill"
-                    )
-
-                    installationCard(
-                        number: "6",
-                        title: "Pairing file",
-                        subtitle: "Importa el archivo de pairing desde Archivos cuando ya lo tengas listo.",
-                        icon: "doc.badge.gearshape.fill",
-                        buttonTitle: "Abrir Archivos",
-                        action: { open("shareddocuments://") }
-                    )
+                    Text("La app solo abre las pantallas necesarias. iOS muestra los permisos y el codigo; confirma manualmente cuando aparezcan.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 36)
@@ -932,60 +941,84 @@ private struct GreegInstallationView: View {
         }
     }
 
-    private func installationCard(
-        number: String,
-        title: String,
-        subtitle: String,
-        icon: String,
-        buttonTitle: String? = nil,
-        action: (() -> Void)? = nil
+    private func settingsSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
     ) -> some View {
-        GreegPanel {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(AppTheme.accent.opacity(0.16))
-                        Text(number)
-                            .font(.headline.weight(.black))
-                            .foregroundStyle(AppTheme.accent)
-                    }
-                    .frame(width: 42, height: 42)
-
-                    AppRowIcon(systemName: icon, tint: AppTheme.accent, symbolSize: 16, frameSize: 42)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title)
-                            .font(.headline.weight(.black))
-                            .foregroundStyle(.primary)
-                        Text(subtitle)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                }
-
-                if let buttonTitle, let action {
-                    Button(action: action) {
-                        HStack {
-                            Text(buttonTitle)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                        }
-                        .font(.subheadline.weight(.black))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(AppTheme.accent)
-                        )
-                    }
-                    .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 18)
+            GreegPanel {
+                VStack(spacing: 0) {
+                    content()
                 }
             }
         }
+    }
+
+    private func statusRow(_ title: String, value: String, valueColor: Color = .secondary) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(valueColor)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private func actionRow(
+        title: String,
+        subtitle: String,
+        icon: String,
+        tint: Color,
+        buttonTitle: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(tint)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.black))
+                    Text(subtitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+            }
+
+            Button(action: action) {
+                HStack {
+                    Text(buttonTitle)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .font(.subheadline.weight(.black))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(tint)
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var divider: some View {
+        Divider()
+            .overlay(Color.white.opacity(0.08))
     }
 
     private func open(_ value: String) {
