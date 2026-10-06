@@ -970,6 +970,10 @@ private struct GreegSettingsSheetView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 18)
+                .padding(.bottom, 36)
             }
             .background(Color.black.ignoresSafeArea())
             .navigationTitle("Settings")
