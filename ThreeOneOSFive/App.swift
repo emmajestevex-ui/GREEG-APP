@@ -19,6 +19,7 @@ struct ThreeOneOSFiveApp: App {
     @State private var showAttribution = false
     @State private var updateOffer: AppUpdateChecker.Offer?
     @Environment(\.scenePhase) private var scenePhase
+    private let licenseGateEnabled = false
     private let licensePoller = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     init() {
@@ -38,6 +39,17 @@ struct ThreeOneOSFiveApp: App {
     }
 
     private func refreshLicenseStatus() {
+        guard licenseGateEnabled else {
+            let defaults = UserDefaults.standard
+            defaults.set(true, forKey: "greeg.license.supabaseUnlocked")
+            defaults.set(DeviceInstallationID.current(), forKey: "greeg.license.device")
+            licenseMessage = ""
+            licenseValidationPending = false
+            licenseUnlocked = true
+            prepareUnlockedApp()
+            return
+        }
+
         let deviceID = DeviceInstallationID.current()
         let storedKey = UserDefaults.standard.string(forKey: "greeg.license.key")?.normalizedLicenseKey ?? ""
         guard !storedKey.isEmpty else {
@@ -105,8 +117,8 @@ struct ThreeOneOSFiveApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if licenseUnlocked {
-                    if licenseValidationPending {
+                if !licenseGateEnabled || licenseUnlocked {
+                    if licenseGateEnabled && licenseValidationPending {
                         LicenseCheckingView()
                     } else {
                         ContentView()
@@ -146,7 +158,7 @@ struct ThreeOneOSFiveApp: App {
                 }
             }
             .preferredColorScheme(.dark)
-            .displayIdentityAttribution(isPresented: $showAttribution, enabled: licenseUnlocked && !showOnboarding)
+            .displayIdentityAttribution(isPresented: $showAttribution, enabled: (!licenseGateEnabled || licenseUnlocked) && !showOnboarding)
             .sheet(isPresented: $showAttribution) {
                 DisplayAttributionSheet()
             }
